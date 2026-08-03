@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { renderPdf } from "./pdf.js";
 import { SUPPORTED_LANGS, availableLangs } from "./i18n.js";
+import { validate } from "./validate.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -62,35 +63,6 @@ function resolveReportPath(input) {
     );
   }
   return hit;
-}
-
-function validate(report, path) {
-  const problems = [];
-  if (!report.meta) problems.push("missing `meta`");
-  else {
-    for (const k of ["site", "clientName", "auditedAt", "score", "pagesAnalyzed"]) {
-      if (report.meta[k] === undefined) problems.push(`missing \`meta.${k}\``);
-    }
-    const { score } = report.meta;
-    if (score !== undefined && (typeof score !== "number" || score < 0 || score > 100)) {
-      problems.push("`meta.score` must be a number 0–100");
-    }
-  }
-  if (!Array.isArray(report.findings) || !report.findings.length) {
-    problems.push("`findings` must be a non-empty array");
-  } else {
-    const valid = new Set(["critical", "warning", "opportunity", "pass"]);
-    report.findings.forEach((f, i) => {
-      if (!valid.has(f.severity)) {
-        problems.push(`findings[${i}] (${f.id ?? "no id"}): invalid severity "${f.severity}"`);
-      }
-      if (!f.title) problems.push(`findings[${i}] (${f.id ?? "no id"}): missing title`);
-    });
-  }
-
-  if (problems.length) {
-    throw new Error(`Invalid report ${basename(path)}:\n${problems.map((p) => `  · ${p}`).join("\n")}`);
-  }
 }
 
 async function main() {

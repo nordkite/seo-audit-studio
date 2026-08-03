@@ -1,0 +1,172 @@
+import {
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  existsSync,
+  copyFileSync,
+  unlinkSync,
+} from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { validate } from "../../src/validate.js";
+import { availableLangs } from "../../src/i18n.js";
+import { ensureIds, baseline, computeState, statusFor, summarize } from "./state.js";
+
+export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const REPORTS = join(ROOT, "reports");
+const BACKUPS = join(ROOT, ".studio-backups");
+const KEEP_BACKUPS = 20;
+
+/** Slugs become file paths. Anything outside this shape is rejected outright. */
+export const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
+
+export function assertSlug(slug) {
+  if (!SLUG_RE.test(String(slug ?? ""))) {
+    throw Object.assign(new Error(`Invalid slug: ${slug}`), { status: 400 });
+  }
+  return slug;
+}
+
+const reportPath = (slug) => join(REPORTS, `${assertSlug(slug)}.json`);
+
+export function listReports() {
+  if (!existsSync(REPORTS)) return [];
+  return readdirSync(REPORTS)
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => {
+      const slug = f.replace(/\.json$/, "");
+      try {
+        const report = JSON.parse(readFileSync(join(REPORTS, f), "utf8"));
+        return {
+          slug,
+          site: report.meta?.site ?? slug,
+          clientName: report.meta?.clientName ?? "",
+          score: report.meta?.score ?? null,
+          auditedAt: report.meta?.auditedAt ?? null,
+          findings: report.findings?.length ?? 0,
+          langs: availableLangs(report),
+        };
+      } catch {
+        return { slug, site: slug, clientName: "", broken: true, langs: [] };
+      }
+    })
+    .sort((a, b) => String(b.auditedAt).localeCompare(String(a.auditedAt)));
+}
+
+/**
+ * Read a report for editing.
+ *
+ * `mtime` goes back to the client and must come back on save — the translate
+ * command and a Claude Code session can both rewrite this file while the
+ * editor holds it open, and last-write-wins would silently discard their work.
+ */
+export function readReport(slug) {
+  const path = reportPath(slug);
+  if (!existsSync(path)) {
+    throw Object.assign(new Error(`No such report: ${slug}`), { status: 404 });
+  }
+  const report = baseline(ensureIds(JSON.parse(readFileSync(path, "utf8"))));
+  const status = statusFor(report);
+
+  return {
+    slug,
+    report,
+    mtime: statSync(path).mtimeMs,
+    status,
+    totals: summarize(status),
+  };
+}
+
+function backup(path, slug) {
+  if (!existsSync(path)) return;
+  const dir = join(BACKUPS, slug);
+  mkdirSync(dir, { recursive: true });
+  copyFileSync(path, join(dir, `${new Date().toISOString().replace(/[:.]/g, "-")}.json`));
+
+  const old = readdirSync(dir).sort().slice(0, -KEEP_BACKUPS);
+  for (const f of old) unlinkSync(join(dir, f));
+}
+
+/**
+ * Write a report.
+ *
+ * Order matters: validate before touching disk, back up before overwriting,
+ * and write through a temp file so a crash mid-write cannot leave a truncated
+ * JSON file where an audit used to be.
+ */
+export function writeReport(slug, report, { expectedMtime, refreshState = false } = {}) {
+  const path = reportPath(slug);
+
+  if (expectedMtime != null && existsSync(path)) {
+    const actual = statSync(path).mtimeMs;
+    // Sub-millisecond drift is filesystem noise, not a real edit.
+    if (Math.abs(actual - expectedMtime) > 1) {
+      throw Object.assign(
+        new Error(
+          `${slug}.json changed on disk since you opened it — reload before saving, ` +
+            `or your edits will overwrite whatever changed it.`
+        ),
+        { status: 409 }
+      );
+    }
+  }
+
+  ensureIds(report);
+  validate(report, path);
+
+  // Only a completed translation run may claim the source text is translated.
+  // Otherwise keep whatever baseline the client is holding — re-hashing here
+  // would bless the very edits we want to flag.
+  if (refreshState) report._translationState = computeState(report);
+  else baseline(report);
+
+  mkdirSync(REPORTS, { recursive: true });
+  backup(path, slug);
+
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  renameSync(tmp, path);
+
+  return readReport(slug);
+}
+
+export function reportExists(slug) {
+  return existsSync(reportPath(slug));
+}
+
+/** A minimal report that passes validate() — findings must be non-empty. */
+export function skeleton({ slug, site, clientName, siteUrl = "" }) {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    meta: {
+      slug,
+      site,
+      siteUrl: siteUrl || `https://${site}/`,
+      clientName,
+      auditedAt: today,
+      pagesAnalyzed: 0,
+      score: 50,
+      sourceLang: "en",
+      translatedAt: {},
+    },
+    summary: { en: "" },
+    method: { en: "" },
+    findings: [
+      {
+        id: "placeholder",
+        severity: "critical",
+        impact: "high",
+        effort: "low",
+        title: { en: "Replace this placeholder finding" },
+        body: { en: "" },
+      },
+    ],
+    roadmap: [],
+    notCovered: [],
+    sections: [],
+    _translationState: {},
+  };
+}

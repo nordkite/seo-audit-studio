@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { loadStrings, t, formatDate, formatNumber } from "./i18n.js";
@@ -14,6 +14,18 @@ export const BRAND = {
 
 const SEVERITIES = ["critical", "warning", "opportunity", "pass"];
 
+/** Where a custom section may be slotted into the body flow. */
+export const ANCHORS = ["summary", "breakdown", "findings", "roadmap", "notCovered"];
+
+const MIME = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+};
+
 const esc = (s) =>
   String(s)
     .replace(/&/g, "&amp;")
@@ -26,6 +38,28 @@ function logoSvg({ color } = {}) {
   const raw = readFileSync(join(ROOT, "brand", "nordkite-logo.svg"), "utf8");
   if (!color) return raw;
   return raw.replace(/fill="#293451"/gi, `fill="${color}"`);
+}
+
+/**
+ * Inline an image as a data URI.
+ *
+ * Same constraint as the logo: pdf.js loads HTML through setContent(), which
+ * has no base URL, so a relative src resolves to nothing and Chrome drops the
+ * image without erroring. Anything the PDF draws must be embedded in the markup.
+ */
+function dataUri(relPath) {
+  const ext = String(relPath).split(".").pop().toLowerCase();
+  const mime = MIME[ext];
+  if (!mime) {
+    throw new Error(
+      `Unsupported image type ".${ext}" (${relPath}). Supported: ${Object.keys(MIME).join(", ")}`
+    );
+  }
+
+  const abs = join(ROOT, relPath);
+  if (!existsSync(abs)) throw new Error(`Image not found: ${relPath}`);
+
+  return `data:${mime};base64,${readFileSync(abs).toString("base64")}`;
 }
 
 function scoreBand(score) {
@@ -101,6 +135,29 @@ function severitySection(sev, findings, lang, sourceLang, s, { breakBefore }) {
       </div>
       <p class="section__hint">${esc(s.sectionHints[sev])}</p>
       ${items.map((f) => findingCard(f, lang, sourceLang, s)).join("")}
+    </section>`;
+}
+
+/**
+ * A hand-authored section — prose, an image, or both. Unlike findings these
+ * carry no severity and no audit metadata; they exist so a report can show
+ * something a finding card cannot, such as a SERP screenshot.
+ */
+function customSection(sec, lang, sourceLang) {
+  const img = sec.image;
+  const figure = img?.src
+    ? `
+      <figure class="figure">
+        <img src="${dataUri(img.src)}" alt="${esc(t(img.alt, lang, sourceLang))}">
+        ${img.caption ? `<figcaption>${esc(t(img.caption, lang, sourceLang))}</figcaption>` : ""}
+      </figure>`
+    : "";
+
+  return `
+    <section class="section${sec.breakBefore ? " section--break" : ""}">
+      <div class="section__head"><h2>${esc(t(sec.title, lang, sourceLang))}</h2></div>
+      ${sec.body ? `<p class="custom__body">${esc(t(sec.body, lang, sourceLang))}</p>` : ""}
+      ${figure}
     </section>`;
 }
 
@@ -222,6 +279,14 @@ export function renderBody(report, lang) {
     )
     .join("");
 
+  // Custom sections slot in after a named built-in section. The built-in flow
+  // itself stays fixed — a report always reads summary → breakdown → findings.
+  const at = (anchor) =>
+    (report.sections ?? [])
+      .filter((sec) => (sec.after ?? "summary") === anchor)
+      .map((sec) => customSection(sec, lang, sourceLang))
+      .join("");
+
   return shell(
     lang,
     `${s.doc.kicker} — ${m.site}`,
@@ -233,15 +298,21 @@ export function renderBody(report, lang) {
     <p class="lede">${esc(t(report.summary, lang, sourceLang))}</p>
   </section>
 
+  ${at("summary")}
+
   <section class="section">
     <div class="section__head"><h2>${esc(s.sections.breakdown)}</h2></div>
     <div class="glance">${glance}</div>
     <div class="method">${esc(t(report.method, lang, sourceLang))}</div>
   </section>
 
+  ${at("breakdown")}
+
   ${SEVERITIES.map((sev, i) =>
     severitySection(sev, report.findings, lang, sourceLang, s, { breakBefore: i === 0 })
   ).join("")}
+
+  ${at("findings")}
 
   ${
     roadmap
@@ -252,6 +323,8 @@ export function renderBody(report, lang) {
       : ""
   }
 
+  ${at("roadmap")}
+
   ${
     notCovered
       ? `<section class="section">
@@ -260,6 +333,8 @@ export function renderBody(report, lang) {
          </section>`
       : ""
   }
+
+  ${at("notCovered")}
 
   <div class="endslug">
     <div class="endslug__logo">${logoSvg()}</div>

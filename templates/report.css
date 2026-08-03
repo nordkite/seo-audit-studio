@@ -439,6 +439,37 @@ code,
 .t-opportunity { --tone: var(--opportunity); --tone-bg: var(--opportunity-bg); }
 .t-pass        { --tone: var(--pass);        --tone-bg: var(--pass-bg); }
 
+/* --- Custom sections and figures ----------------------------------------- */
+
+.custom__body {
+  font-size: 9.4pt;
+  color: var(--ink-muted);
+}
+
+.figure {
+  /* Same rule as .finding: a caption separated from its image across a page
+     boundary is worse than a short page. */
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin: 4mm 0 0;
+}
+
+.figure img {
+  display: block;
+  width: 100%;
+  /* 210mm A4 less the 18mm .sheet padding on each side. */
+  max-width: 174mm;
+  height: auto;
+  border: 1px solid var(--rule);
+  border-radius: 1.5mm;
+}
+
+.figure figcaption {
+  margin-top: 2mm;
+  font-size: 8.2pt;
+  color: var(--ink-faint);
+}
+
 /* --- Roadmap ------------------------------------------------------------- */
 
 .roadmap {

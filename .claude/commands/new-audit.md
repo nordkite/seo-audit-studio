@@ -53,7 +53,21 @@ Audit a site end to end and emit `reports/<slug>.json`. Arguments: `$ARGUMENTS`
     }
   ],
   "roadmap":    [ { "title": { "en": "…" }, "body": { "en": "…" } } ],
-  "notCovered": [ { "title": { "en": "…" }, "body": { "en": "…" } } ]
+  "notCovered": [ { "title": { "en": "…" }, "body": { "en": "…" } } ],
+  "sections":   [                  // optional — prose and/or an image
+    {
+      "id": "serp-preview",        // stable kebab-case
+      "after": "summary",          // summary | breakdown | findings | roadmap | notCovered
+      "breakBefore": false,        // force a page break before this section
+      "title": { "en": "…" },
+      "body":  { "en": "…" },      // optional
+      "image": {                   // optional
+        "src": "assets/<slug>/serp.png",
+        "alt":     { "en": "…" },
+        "caption": { "en": "…" }
+      }
+    }
+  ]
 }
 ```
 
@@ -69,6 +83,11 @@ Audit a site end to end and emit `reports/<slug>.json`. Arguments: `$ARGUMENTS`
   Say plainly which items are configuration and which actually move rankings.
 - **`score`** — 90+ excellent, 70–89 good, 50–69 needs significant work, <50
   critical. The cover dial colour follows these bands.
+- **`sections`** — optional, for evidence a finding card cannot carry: a SERP
+  screenshot, a Lighthouse trace, a crawl diagram. Images live under
+  `assets/<slug>/` and are inlined as data URIs at render time, so keep them
+  around 1400px wide — enough for ~200dpi at the 174mm printed width, without
+  bloating the PDF. Do not add a section just to decorate the report.
 
 ## Do not
 

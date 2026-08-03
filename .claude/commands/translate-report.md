@@ -17,15 +17,22 @@ changed or the user explicitly asks.
 1. Read `reports/<slug>.json` and `i18n/glossary.json`.
 
 2. Identify every translatable field missing the target language. Translatable
-   fields are `summary`, `method`, and — on each entry of `findings`, `roadmap`
-   and `notCovered` — `title`, `body`, and `evidence` **when `evidence` is an
-   object**. A string `evidence` is a verbatim technical reference: leave it
-   alone.
+   fields are `summary`, `method`, and — on each entry of `findings`, `roadmap`,
+   `notCovered` and `sections` — `title`, `body`, and `evidence` **when
+   `evidence` is an object**. A string `evidence` is a verbatim technical
+   reference: leave it alone.
+
+   On a `sections` entry, `image.alt` and `image.caption` are translatable too.
+   `image.src` is a file path — never translate it.
 
 3. Translate from `meta.sourceLang` (normally `en`).
 
 4. Write the translations back into the same file, preserving key order and
    the existing English. Set `meta.translatedAt.<lang>` to today's date.
+
+   Leave any `_translationState` key exactly as you found it. It is a
+   machine-maintained map of source-text hashes used by Report Studio to detect
+   stale translations; the Studio rewrites it after a successful run.
 
 5. Report which fields you filled and confirm nothing was overwritten.
 

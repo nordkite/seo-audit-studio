@@ -40,18 +40,96 @@ Translation is cached into the report JSON, so it is paid once per report rather
 than once per render. Adding a fourth language later means translating the JSON —
 not re-auditing the site.
 
+## Report Studio
+
+A local editor for the same JSON — drag findings between severities, add sections
+with images, edit any language side by side with its English source, and see a
+live preview rendered by the production renderer.
+
+```bash
+npm run studio        # builds the UI, serves on http://127.0.0.1:4321
+npm run studio:dev    # Vite with hot reload on :5173, API on :4321
+```
+
+It binds to 127.0.0.1 only — it writes to `reports/` and spawns `claude`.
+
+| Button | Does |
+|---|---|
+| **Save** | Validates, backs up to `.studio-backups/`, writes atomically |
+| **Translate** | Runs `claude -p "/translate-report <slug> <lang>"` and streams the log |
+| **Render PDF** | Runs `npm run report -- <slug> --all` |
+
+### Stale translations
+
+Editing English silently invalidates `et` and `ru` — nothing in the render
+pipeline notices, and these PDFs go to clients. So the Studio records a hash of
+each English string as of the last successful translation, under
+`_translationState` in the report JSON, and marks any field whose source has
+changed since. Language tabs show the outstanding count; each field shows
+`translated` / `stale` / `missing`.
+
+Reports written before this existed are baselined the first time the Studio opens
+them, so they do not appear entirely stale.
+
+### Dependency contract
+
+Everything the Studio needs is a `devDependency`. `dependencies` is exactly
+`pdf-lib` and `puppeteer`:
+
+```bash
+npm ci --omit=dev && npm run report -- naa-ee   # still works
+```
+
+Keep it that way — the PDF pipeline should never depend on the editor.
+
 ## How it fits together
 
 ```
 reports/<slug>.json     audit data — every human string is { en, et, ru }
+assets/<slug>/          images used by custom sections
 i18n/{en,et,ru}.json    report chrome — section titles, labels, score bands
 i18n/glossary.json      terms that must never be translated
 templates/report.css    print stylesheet (A4, physical units)
 src/render.js           (report, lang) → HTML
 src/pdf.js              HTML → PDF via headless Chrome, two-pass + merge
+src/validate.js         report rules, shared by the CLI and the Studio
 src/generate.js         CLI
+studio/server.js        Studio API — node:http, zero dependencies
+studio/client/          Studio UI — React + Tailwind + shadcn/ui
 brand/                  logo, recoloured per surface at render time
 ```
+
+### Custom sections
+
+Beyond findings, a report can carry hand-authored sections — prose, an image, or
+both — for evidence a finding card cannot hold: a SERP screenshot, a crawl
+diagram. They slot in after a named built-in section:
+
+```jsonc
+"sections": [{
+  "id": "serp-preview",
+  "after": "summary",              // summary | breakdown | findings | roadmap | notCovered
+  "title": { "en": "…", "et": "…", "ru": "…" },
+  "body":  { "en": "…" },
+  "image": {
+    "src": "assets/naa-ee/serp.png",
+    "alt":     { "en": "…" },
+    "caption": { "en": "…" }
+  }
+}]
+```
+
+Images are inlined as data URIs at render time (there is no base URL — see
+*Fonts* below for the same constraint), so size them for print: the printed width
+is 174 mm, so ~1400 px gives roughly 200 dpi.
+
+### Why the two stylesheets never meet
+
+`templates/report.css` is for paper and sets global `html`/`body`/`*` rules;
+Tailwind is for screens and its preflight resets heading sizes. Each would break
+the other, so the Studio renders the report inside an `<iframe srcDoc>` — a
+separate document, hence a separate CSS scope. `templates/report.css` is excluded
+from Tailwind's content glob and contains no utility classes.
 
 ### Why two passes
 
