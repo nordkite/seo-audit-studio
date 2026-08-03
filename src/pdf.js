@@ -1,0 +1,72 @@
+import puppeteer from "puppeteer";
+import { PDFDocument } from "pdf-lib";
+import { renderCover, renderBody, runningTemplates } from "./render.js";
+
+const A4 = { format: "A4" };
+
+/**
+ * Chrome applies header/footer templates to every page and offers no way to
+ * skip the first one, so a bleeding cover and numbered body pages cannot come
+ * from a single pass. We render them as two documents and merge:
+ *
+ *   pass 1 — cover, zero margins, no running header/footer (bleeds to edge)
+ *   pass 2 — body, margins reserved for the running header/footer
+ *
+ * Page numbers therefore count body pages only, which is also the correct
+ * print convention: a cover is never folio'd.
+ */
+export async function renderPdf(report, lang) {
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--font-render-hinting=none"],
+  });
+
+  try {
+    const page = await browser.newPage();
+
+    await page.setContent(renderCover(report, lang), { waitUntil: "load" });
+    const coverPdf = await page.pdf({
+      ...A4,
+      printBackground: true,
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    });
+
+    const { header, footer } = runningTemplates(report, lang);
+    await page.setContent(renderBody(report, lang), { waitUntil: "load" });
+    const bodyPdf = await page.pdf({
+      ...A4,
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: header,
+      footerTemplate: footer,
+      // Must exceed the header/footer template heights or they clip.
+      margin: { top: "20mm", right: 0, bottom: "18mm", left: 0 },
+    });
+
+    return await merge([coverPdf, bodyPdf], report, lang);
+  } finally {
+    await browser.close();
+  }
+}
+
+async function merge(parts, report, lang) {
+  const out = await PDFDocument.create();
+
+  for (const part of parts) {
+    const doc = await PDFDocument.load(part);
+    const pages = await out.copyPages(doc, doc.getPageIndices());
+    pages.forEach((p) => out.addPage(p));
+  }
+
+  const { site, clientName, auditedAt } = report.meta;
+  out.setTitle(`SEO Audit — ${site} (${lang.toUpperCase()})`);
+  out.setAuthor("Nordkite");
+  out.setCreator("Nordkite SEO Reports");
+  out.setProducer("Nordkite");
+  out.setSubject(`SEO audit report for ${clientName}`);
+  out.setKeywords(["SEO", "audit", site, clientName]);
+  out.setCreationDate(new Date(`${auditedAt}T00:00:00Z`));
+  out.setLanguage(lang);
+
+  return Buffer.from(await out.save());
+}

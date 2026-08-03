@@ -1,0 +1,63 @@
+{
+  "locale": "en-GB",
+  "langName": "English",
+  "doc": {
+    "kicker": "SEO Audit Report",
+    "preparedFor": "Prepared for",
+    "preparedBy": "Prepared by",
+    "auditedOn": "Audit date",
+    "pagesAnalyzed": "Pages analysed",
+    "stack": "Stack",
+    "contents": "Contents",
+    "page": "Page",
+    "of": "of",
+    "confidential": "Confidential — prepared for the named client only."
+  },
+  "score": {
+    "label": "Overall score",
+    "outOf": "out of 100",
+    "bands": {
+      "excellent": "Excellent foundation",
+      "good": "Good, room to improve",
+      "needsWork": "Needs significant work",
+      "critical": "Critical issues"
+    }
+  },
+  "sections": {
+    "summary": "Executive summary",
+    "method": "Method",
+    "breakdown": "Findings at a glance",
+    "critical": "Critical issues",
+    "warning": "Warnings",
+    "opportunity": "Opportunities",
+    "pass": "What is already working",
+    "roadmap": "Recommended order of work",
+    "notCovered": "Not covered by this audit"
+  },
+  "sectionHints": {
+    "critical": "Must fix — these actively cost you traffic today.",
+    "warning": "Should fix — meaningful gains for modest effort.",
+    "opportunity": "Nice to have — refinements once the above are done.",
+    "pass": "Verified as correct. No action needed."
+  },
+  "severity": {
+    "critical": "Critical",
+    "warning": "Warning",
+    "opportunity": "Opportunity",
+    "pass": "Passing"
+  },
+  "meta": {
+    "impact": "Impact",
+    "effort": "Effort",
+    "evidence": "Evidence",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "counts": {
+    "critical": "critical",
+    "warning": "warnings",
+    "opportunity": "opportunities",
+    "pass": "passing"
+  }
+}

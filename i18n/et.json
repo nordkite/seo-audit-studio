@@ -1,0 +1,63 @@
+{
+  "locale": "et-EE",
+  "langName": "Eesti",
+  "doc": {
+    "kicker": "SEO auditi aruanne",
+    "preparedFor": "Koostatud kliendile",
+    "preparedBy": "Koostaja",
+    "auditedOn": "Auditi kuupäev",
+    "pagesAnalyzed": "Analüüsitud lehti",
+    "stack": "Tehnoloogia",
+    "contents": "Sisukord",
+    "page": "Lk",
+    "of": "/",
+    "confidential": "Konfidentsiaalne — koostatud üksnes nimetatud kliendile."
+  },
+  "score": {
+    "label": "Koondhinne",
+    "outOf": "100-st",
+    "bands": {
+      "excellent": "Suurepärane vundament",
+      "good": "Hea, arenguruumi on",
+      "needsWork": "Vajab olulist tööd",
+      "critical": "Kriitilised probleemid"
+    }
+  },
+  "sections": {
+    "summary": "Kokkuvõte juhtkonnale",
+    "method": "Metoodika",
+    "breakdown": "Leiud ülevaatlikult",
+    "critical": "Kriitilised probleemid",
+    "warning": "Hoiatused",
+    "opportunity": "Võimalused",
+    "pass": "Mis juba toimib",
+    "roadmap": "Soovitatav töö järjekord",
+    "notCovered": "Mida see audit ei katnud"
+  },
+  "sectionHints": {
+    "critical": "Tuleb parandada — need maksavad teile liiklust juba täna.",
+    "warning": "Tasub parandada — märkimisväärne võit mõõduka vaevaga.",
+    "opportunity": "Kasulik lisa — täpsustused, kui ülaltoodu on tehtud.",
+    "pass": "Kontrollitud ja korras. Tegevust ei vaja."
+  },
+  "severity": {
+    "critical": "Kriitiline",
+    "warning": "Hoiatus",
+    "opportunity": "Võimalus",
+    "pass": "Korras"
+  },
+  "meta": {
+    "impact": "Mõju",
+    "effort": "Töömaht",
+    "evidence": "Tõendus",
+    "high": "Suur",
+    "medium": "Keskmine",
+    "low": "Väike"
+  },
+  "counts": {
+    "critical": "kriitilist",
+    "warning": "hoiatust",
+    "opportunity": "võimalust",
+    "pass": "korras"
+  }
+}

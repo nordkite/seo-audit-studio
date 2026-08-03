@@ -1,0 +1,21 @@
+{
+  "name": "nordkite-seo-reports",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Branded, multilingual PDF SEO audit reports for Nordkite clients",
+  "type": "module",
+  "bin": {
+    "seo-report": "./src/generate.js"
+  },
+  "scripts": {
+    "report": "node src/generate.js",
+    "report:all": "node src/generate.js --all-langs"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "puppeteer": "^24.10.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
