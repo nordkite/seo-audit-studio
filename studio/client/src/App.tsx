@@ -18,10 +18,12 @@ import { ListPanel } from "@/components/ListPanel";
 import { SectionsPanel } from "@/components/SectionsPanel";
 import { PreviewPane } from "@/components/PreviewPane";
 import { TranslateDialog } from "@/components/TranslateDialog";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { I18nField } from "@/components/I18nField";
 import { api } from "@/lib/api";
 import { counts, edit, paths, slugify } from "@/lib/report";
-import type { Doc, FieldStatus, Lang, Report, ReportSummary } from "@/lib/types";
+import { useTranslateSettings } from "@/lib/settings";
+import type { Doc, FieldStatus, Health, Lang, Report, ReportSummary } from "@/lib/types";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -43,6 +45,9 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [translating, setTranslating] = useState<Lang | null>(null);
   const [creating, setCreating] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [health, setHealth] = useState<Health | null>(null);
+  const [settings, updateSettings] = useTranslateSettings();
 
   // Paths whose source text changed since the last save. The server owns the
   // real hashes, but waiting for a round trip to flag drift makes the warning
@@ -54,6 +59,7 @@ export default function App() {
 
   useEffect(() => {
     api.list().then((r) => setReports(r.reports)).catch((e) => toast.error(e.message));
+    api.health().then(setHealth).catch(() => setHealth(null));
   }, []);
 
   const load = useCallback(async (next: string) => {
@@ -111,7 +117,14 @@ export default function App() {
   const translate = useCallback(
     async (target: Lang) => {
       if (!doc || !slug) return;
-      // The command reads the file from disk — unsaved edits would be
+
+      if (settings.provider === "api" && !settings.apiKey && !health?.hasEnvKey) {
+        toast.error("Add your Anthropic API key in Translation settings first.");
+        setSettingsOpen(true);
+        return;
+      }
+
+      // Translation reads the file from disk — unsaved edits would be
       // translated in their previous form.
       if (dirty) {
         try {
@@ -126,7 +139,7 @@ export default function App() {
       }
       setTranslating(target);
     },
-    [doc, slug, dirty]
+    [doc, slug, dirty, settings.provider, settings.apiKey, health?.hasEnvKey]
   );
 
   const render = useCallback(async () => {
@@ -168,6 +181,7 @@ export default function App() {
         onSave={save}
         onTranslate={translate}
         onRender={render}
+        onSettings={() => setSettingsOpen(true)}
       />
 
       {!doc ? (
@@ -180,6 +194,7 @@ export default function App() {
             <MetaPanel
               meta={report!.meta}
               counts={findingCounts}
+              disabled={translating !== null}
               onChange={(meta) => update((d) => void (d.meta = meta))}
             />
 
@@ -194,6 +209,7 @@ export default function App() {
                   lang={lang}
                   sourceLang={source}
                   status={statusOf(paths.summary())}
+                  disabled={translating !== null}
                 />
                 <I18nField
                   label="Method"
@@ -204,6 +220,7 @@ export default function App() {
                   lang={lang}
                   sourceLang={source}
                   status={statusOf(paths.method())}
+                  disabled={translating !== null}
                 />
               </div>
             </Section>
@@ -268,13 +285,21 @@ export default function App() {
       <TranslateDialog
         slug={slug ?? ""}
         lang={translating}
+        settings={settings}
         onClose={() => setTranslating(null)}
         onDone={(fresh) => {
           setDoc(fresh);
           setDirty(false);
           setTouched(new Set());
-          toast.success("Translation complete");
         }}
+      />
+
+      <SettingsDialog
+        open={settingsOpen}
+        settings={settings}
+        health={health}
+        onChange={updateSettings}
+        onClose={() => setSettingsOpen(false)}
       />
 
       <NewReportDialog

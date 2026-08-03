@@ -42,6 +42,7 @@ interface Props {
   multiline?: boolean;
   rows?: number;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export function I18nField({
@@ -54,6 +55,7 @@ export function I18nField({
   multiline,
   rows = 4,
   placeholder,
+  disabled,
 }: Props) {
   const current = value?.[lang] ?? "";
   const source = value?.[sourceLang] ?? "";
@@ -70,6 +72,7 @@ export function I18nField({
         value={current}
         rows={multiline ? rows : undefined}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
           onChange({ ...(value ?? {}), [lang]: e.target.value })
         }

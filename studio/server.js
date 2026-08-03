@@ -14,9 +14,10 @@ import {
   reportExists,
   skeleton,
 } from "./lib/store.js";
+import { translateReport } from "./lib/translate/index.js";
+import { DEFAULT_MODEL } from "./lib/translate/anthropic.js";
 
 const PORT = Number(process.env.STUDIO_PORT ?? 4321);
-const CLAUDE_BIN = process.env.CLAUDE_BIN ?? "claude";
 const DIST = join(ROOT, "studio", "client", "dist");
 const MAX_BODY = 64 * 1024 * 1024;
 
@@ -106,118 +107,35 @@ function serveStatic(req, res, pathname) {
 /* ------------------------------------------------------------- translate -- */
 
 /**
- * Run the real /translate-report command and stream its progress.
+ * Translate a report into one language.
  *
- * This is deliberately not an API call: translation already exists as a
- * reviewed slash command with the glossary rules baked in, and reimplementing
- * it against the Messages API would mean two prompts to keep in sync.
+ * A plain request/response, not a stream. The work is one model call per batch
+ * of a few thousand characters, so there is no long-running progress to
+ * report — and an EventSource could carry neither a request body nor an
+ * Authorization header, which is where the API key has to travel.
  *
- * Bash is withheld — the command ends by running `npm run report`, and the
- * Studio owns rendering.
+ * The key is read off the request and handed straight to the provider. It is
+ * never logged, never written to disk, and never echoed back.
  */
-function translate(req, res, slug, lang) {
+async function translate(req, res, slug, lang) {
   assertSlug(slug);
   assertLang(lang);
 
-  res.writeHead(200, {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache, no-transform",
-    Connection: "keep-alive",
-    "X-Accel-Buffering": "no",
+  const { provider, apiKey, model, scope } = await readBody(req);
+
+  // The client hangs up if the user closes the dialog; stop the work with it.
+  const controller = new AbortController();
+  req.on("close", () => controller.abort());
+
+  const result = await translateReport(slug, lang, {
+    provider,
+    apiKey,
+    model,
+    scope,
+    signal: controller.signal,
   });
 
-  const send = (event, data) =>
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-
-  const args = [
-    "-p",
-    `/translate-report ${slug} ${lang}`,
-    "--output-format",
-    "stream-json",
-    "--verbose",
-    "--allowedTools",
-    "Read,Edit,Write",
-    "--permission-mode",
-    "acceptEdits",
-  ];
-
-  send("start", { slug, lang, command: `${CLAUDE_BIN} ${args.join(" ")}` });
-
-  let child;
-  try {
-    child = spawn(CLAUDE_BIN, args, { cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] });
-  } catch (err) {
-    send("error", { message: err.message });
-    return res.end();
-  }
-
-  child.on("error", (err) => {
-    send("error", {
-      message:
-        err.code === "ENOENT"
-          ? `Could not find the "claude" CLI on PATH. Run this yourself instead:\n` +
-            `  claude -p "/translate-report ${slug} ${lang}"`
-          : err.message,
-    });
-    res.end();
-  });
-
-  let buf = "";
-  child.stdout.on("data", (chunk) => {
-    buf += chunk.toString("utf8");
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        send("log", describe(JSON.parse(line)));
-      } catch {
-        send("log", { kind: "raw", text: line });
-      }
-    }
-  });
-
-  child.stderr.on("data", (c) => send("log", { kind: "stderr", text: c.toString("utf8") }));
-
-  child.on("close", (code) => {
-    if (code !== 0) {
-      send("error", { message: `claude exited with code ${code}` });
-      return res.end();
-    }
-    try {
-      // The command rewrote the file; re-hash so the source text now on disk
-      // counts as translated, which is what clears the stale badges.
-      const { report } = readReport(slug);
-      send("done", writeReport(slug, report, { refreshState: true }));
-    } catch (err) {
-      send("error", { message: err.message });
-    }
-    res.end();
-  });
-
-  req.on("close", () => child.kill());
-}
-
-/** Turn a stream-json event into one readable progress line. */
-function describe(ev) {
-  if (ev.type === "system") return { kind: "system", text: `session ${ev.session_id ?? ""}`.trim() };
-  if (ev.type === "assistant") {
-    const parts = [];
-    for (const b of ev.message?.content ?? []) {
-      if (b.type === "text" && b.text.trim()) parts.push({ kind: "text", text: b.text.trim() });
-      if (b.type === "tool_use") parts.push({ kind: "tool", text: b.name });
-    }
-    return parts.length === 1 ? parts[0] : { kind: "group", parts };
-  }
-  if (ev.type === "result") {
-    return {
-      kind: ev.is_error ? "stderr" : "result",
-      text: ev.result ?? (ev.is_error ? "failed" : "done"),
-      cost: ev.total_cost_usd,
-      turns: ev.num_turns,
-    };
-  }
-  return { kind: "event", text: ev.type };
+  return json(res, 200, result);
 }
 
 /* ---------------------------------------------------------------- routes -- */
@@ -227,7 +145,15 @@ async function route(req, res, url) {
   const seg = p.split("/").filter(Boolean); // ["api", "report", "naa-ee"]
 
   if (p === "/api/health") {
-    return json(res, 200, { ok: true, langs: SUPPORTED_LANGS, claudeBin: CLAUDE_BIN });
+    return json(res, 200, {
+      ok: true,
+      langs: SUPPORTED_LANGS,
+      defaultModel: DEFAULT_MODEL,
+      // Only whether a key is present, never the key. A key set in the server's
+      // environment is a convenience for single-user local work; the UI still
+      // lets you supply your own per request.
+      hasEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
+    });
   }
 
   if (p === "/api/reports" && req.method === "GET") {
@@ -287,7 +213,7 @@ async function route(req, res, url) {
     return json(res, out.code === 0 ? 200 : 500, out);
   }
 
-  if (seg[0] === "api" && seg[1] === "translate" && seg[2] && seg[3]) {
+  if (seg[0] === "api" && seg[1] === "translate" && seg[2] && seg[3] && req.method === "POST") {
     return translate(req, res, seg[2], seg[3]);
   }
 

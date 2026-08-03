@@ -56,8 +56,34 @@ It binds to 127.0.0.1 only — it writes to `reports/` and spawns `claude`.
 | Button | Does |
 |---|---|
 | **Save** | Validates, backs up to `.studio-backups/`, writes atomically |
-| **Translate** | Runs `claude -p "/translate-report <slug> <lang>"` and streams the log |
+| **Translate** | Fills the current language — see below |
 | **Render PDF** | Runs `npm run report -- <slug> --all` |
+
+The theme follows your OS by default; the sun/moon menu in the top right pins it
+to light or dark.
+
+### Translating
+
+Two providers, chosen in the settings dialog. They send the same prompt and
+return the same result — the difference is who pays.
+
+| | Needs | Runs | Cost |
+|---|---|---|---|
+| **Claude Code** (default) | your Claude Code login | this machine | subscription quota |
+| **Claude API** | your Anthropic API key | anywhere | ~$0.05–0.15 per report per language |
+
+Either way it is one model call per few thousand characters, not an agent
+session: the whole of `naa-ee` is 108 fields and ~8,000 characters, which runs in
+a handful of parallel requests. The model never touches the file — the server
+applies the result by field path and saves it the same way the editor does.
+
+The API key is held in your browser's localStorage and sent with each request.
+It is never written to the report, the backups, the server, or a log line. That
+is deliberate: it is the same shape a hosted multi-user version would need, where
+each person brings their own key.
+
+Set `ANTHROPIC_API_KEY` in the server's environment instead if you would rather
+not paste it into the UI.
 
 ### Stale translations
 
@@ -85,19 +111,25 @@ Keep it that way — the PDF pipeline should never depend on the editor.
 ## How it fits together
 
 ```
-reports/<slug>.json     audit data — every human string is { en, et, ru }
-assets/<slug>/          images used by custom sections
-i18n/{en,et,ru}.json    report chrome — section titles, labels, score bands
-i18n/glossary.json      terms that must never be translated
-templates/report.css    print stylesheet (A4, physical units)
-src/render.js           (report, lang) → HTML
-src/pdf.js              HTML → PDF via headless Chrome, two-pass + merge
-src/validate.js         report rules, shared by the CLI and the Studio
-src/generate.js         CLI
-studio/server.js        Studio API — node:http, zero dependencies
-studio/client/          Studio UI — React + Tailwind + shadcn/ui
-brand/                  logo, recoloured per surface at render time
+reports/<slug>.json       audit data — every human string is { en, et, ru }
+assets/<slug>/            images used by custom sections
+i18n/{en,et,ru}.json      report chrome — section titles, labels, score bands
+i18n/glossary.json        terms that must never be translated
+i18n/translation-rules.md the translation prompt, shared by every path
+templates/report.css      print stylesheet (A4, physical units)
+src/render.js             (report, lang) → HTML
+src/pdf.js                HTML → PDF via headless Chrome, two-pass + merge
+src/validate.js           report rules, shared by the CLI and the Studio
+src/generate.js           CLI
+studio/server.js          Studio API — node:http
+studio/lib/translate/     translation providers behind one interface
+studio/client/            Studio UI — React + Tailwind + shadcn/ui
+brand/                    logo, recoloured per surface at render time
 ```
+
+`/translate-report` and both Studio providers read
+`i18n/translation-rules.md` — glossary handling, number localisation, register,
+Estonian length. One copy, so the two paths cannot drift into two house styles.
 
 ### Custom sections
 

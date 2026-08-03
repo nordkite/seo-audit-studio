@@ -27,12 +27,14 @@ problem this repo exists to solve.
 | `assets/<slug>/` | images used by custom sections |
 | `i18n/{en,et,ru}.json` | report chrome — labels, section titles, score bands |
 | `i18n/glossary.json` | terms that must never be translated |
+| `i18n/translation-rules.md` | the translation prompt, shared by the slash command and the Studio |
 | `templates/report.css` | print stylesheet |
 | `src/render.js` | `(report, lang)` → HTML |
 | `src/pdf.js` | HTML → PDF, two-pass cover+body merge |
 | `src/validate.js` | report rules, shared by the CLI and the Studio |
 | `src/generate.js` | CLI |
-| `studio/server.js` | Studio API — zero dependencies |
+| `studio/server.js` | Studio API |
+| `studio/lib/translate/` | translation providers — `cli.js`, `anthropic.js` |
 | `studio/client/` | Studio UI — React + Tailwind + shadcn/ui |
 | `components.json`, `tsconfig.json` | root-level **only** so `npx shadcn@latest add …` resolves; the CLI needs them beside `package.json`. The app's real config is `studio/client/tsconfig.json`. |
 | `brand/` | logo, recoloured per surface at render time |
@@ -43,19 +45,43 @@ problem this repo exists to solve.
 same `reports/*.json`, so everything below still applies — it is a view over the
 schema, not a second format.
 
-Two things it adds that the JSON alone does not express:
-
-- **`_translationState`** — a map of `field path → hash of the English source at
-  the last successful translation`. It is how the Studio knows an `et`/`ru` string
-  has gone stale after its English changed. `render.js` and `validate.js` ignore
-  the key. Do not hand-edit it; do not delete it when editing a report by hand.
-- **The Translate button** shells out to `claude -p "/translate-report ..."`. It is
-  the same command, not a reimplementation — there is one translation prompt in
-  this repo and it lives in `.claude/commands/translate-report.md`.
+**`_translationState`** is the one thing it adds that the JSON alone does not
+express — a map of `field path → hash of the English source at the last
+successful translation`. It is how the Studio knows an `et`/`ru` string has gone
+stale after its English changed. `render.js` and `validate.js` ignore the key. Do
+not hand-edit it; do not delete it when editing a report by hand.
 
 Studio dependencies are all `devDependencies`. `dependencies` is exactly `pdf-lib`
 and `puppeteer`, so `npm ci --omit=dev && npm run report` still renders. Keep it
 that way.
+
+### Translation providers
+
+`studio/lib/translate/` holds one interface with two implementations. Both send
+the same prompt and get back the same `{ field path → translated string }` map;
+only the transport and who pays differ.
+
+| | Auth | Runs | Cost |
+|---|---|---|---|
+| `cli.js` | the user's Claude Code login | this machine only | subscription quota |
+| `anthropic.js` | an API key sent per request | anywhere | per token |
+
+`cli.js` is **not** an agent run. It calls `claude -p --system-prompt … --allowedTools ""`
+— one turn, no tools, strings in and strings out. The earlier design invoked
+`/translate-report` as an agent that read and `Edit`ed the report itself, which
+meant ~108 tool calls against a 52 KB file per language. Do not reintroduce that:
+the model never needs to touch the file, because `studio/lib/translate/index.js`
+applies the result by field path and saves through the normal `writeReport` path.
+
+**The API key is never persisted.** It lives in the browser's localStorage,
+travels in the POST body, and is handed straight to the provider. It must not be
+logged, written into a report, or stored server-side — that is what makes this
+path viable for a hosted multi-user tool later.
+
+Adding DeepL or Google means one more module beside `anthropic.js` and one more
+entry in `PROVIDERS`. They would also need a glossary upload per language pair
+and a separate number-localisation pass, which the LLM providers get from
+`i18n/translation-rules.md` for free.
 
 ## Print constraints
 
@@ -91,13 +117,15 @@ unclipped, background colours intact.
 
 ## Translation
 
-Technical SEO terms stay in English in every language — `canonical`, `hreflang`,
-`sitemap.xml`, `LCP`, `robots.txt`, HTML tags, HTTP status codes. The full list is
-`i18n/glossary.json`. Estonian and Russian SEO practitioners use the English terms;
-translating them makes reports less usable, not more.
+The rules live in **[i18n/translation-rules.md](i18n/translation-rules.md)** and
+the protected terms in `i18n/glossary.json`. Both are loaded verbatim by
+`/translate-report` and by the Studio's providers, so there is exactly one copy
+of the house style. Change it there, not in a prompt.
 
-Localise number formats and decimal separators. Estonian text runs ~15–20% longer
-than English — the layout tolerates it, but prefer tighter phrasing.
+The short version: technical SEO terms stay in English in every language
+(`canonical`, `hreflang`, `sitemap.xml`, `LCP`, `robots.txt`, HTML tags, HTTP
+status codes), number formats get localised, and Estonian runs ~15–20% longer
+than English so prefer the tighter phrasing.
 
 ## Client-facing output
 

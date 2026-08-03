@@ -33,17 +33,20 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Severity tones, duplicated from templates/report.css on purpose — the
-     Studio must not import the print stylesheet to get four hex values. */
-  --color-sev-critical: #b3261e;
-  --color-sev-warning: #a35c00;
-  --color-sev-opportunity: #2c5f8a;
-  --color-sev-pass: #2a6f4b;
-  --color-brand-navy: #293451;
+  /* Severity tones for the editor's own chrome.
+     Deliberately NOT the hexes from templates/report.css: those are print inks
+     mixed for white paper, and they go muddy on a dark screen. These are stock
+     Tailwind steps that flip with the theme below, so the Studio reads as a
+     normal shadcn app. The PDF's colours are unaffected — different stylesheet,
+     different document. */
+  --color-sev-critical: var(--sev-critical);
+  --color-sev-warning: var(--sev-warning);
+  --color-sev-opportunity: var(--sev-opportunity);
+  --color-sev-pass: var(--sev-pass);
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
@@ -63,10 +66,16 @@
   --border: oklch(0.929 0.013 255.508);
   --input: oklch(0.929 0.013 255.508);
   --ring: oklch(0.704 0.04 256.788);
+
+  /* red-600 / amber-600 / blue-600 / emerald-600 */
+  --sev-critical: oklch(57.7% 0.245 27.325);
+  --sev-warning: oklch(66.6% 0.179 58.318);
+  --sev-opportunity: oklch(54.6% 0.245 262.881);
+  --sev-pass: oklch(59.6% 0.145 163.225);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
+  --background: oklch(13.441% 0.00002 271.152);
   --foreground: oklch(0.984 0.003 247.858);
   --card: oklch(0.208 0.042 265.755);
   --card-foreground: oklch(0.984 0.003 247.858);
@@ -85,6 +94,12 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.551 0.027 264.364);
+
+  /* red-400 / amber-400 / blue-400 / emerald-400 — lifted for contrast on dark */
+  --sev-critical: oklch(70.4% 0.191 22.216);
+  --sev-warning: oklch(82.8% 0.189 84.429);
+  --sev-opportunity: oklch(70.7% 0.165 254.624);
+  --sev-pass: oklch(76.5% 0.177 163.223);
 }
 
 @layer base {

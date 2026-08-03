@@ -145,7 +145,12 @@ export function statusFor(report) {
   const out = {};
 
   for (const { path, node } of translatableFields(report)) {
-    const live = typeof node[source] === "string" ? hash(node[source]) : null;
+    // An empty source string has nothing to translate. Reporting it as
+    // "missing" in every target language would park a permanent count on the
+    // language tabs that no amount of translating could clear.
+    if (typeof node[source] !== "string" || !node[source].trim()) continue;
+
+    const live = hash(node[source]);
     const langs = {};
 
     for (const lang of SUPPORTED_LANGS) {

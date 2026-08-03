@@ -1,4 +1,12 @@
-import type { Doc, Lang, Report, ReportSummary } from "./types";
+import type {
+  Doc,
+  Health,
+  Lang,
+  Report,
+  ReportSummary,
+  TranslateResult,
+  TranslateSettings,
+} from "./types";
 
 async function unwrap<T>(res: Response): Promise<T> {
   if (res.ok) return res.json() as Promise<T>;
@@ -39,6 +47,21 @@ export const api = {
       headers: { "x-filename": file.name },
       body: file,
     }).then((r) => unwrap<{ src: string }>(r)),
+
+  health: () => fetch("/api/health").then((r) => unwrap<Health>(r)),
+
+  /**
+   * The API key travels in the body, not the URL — URLs end up in logs and
+   * browser history. The server hands it straight to the provider and keeps
+   * no copy.
+   */
+  translate: (slug: string, lang: Lang, settings: TranslateSettings, signal?: AbortSignal) =>
+    fetch(`/api/translate/${slug}/${lang}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+      signal,
+    }).then((r) => unwrap<TranslateResult>(r)),
 
   render: (slug: string, langs: Lang[]) =>
     post(`/api/render/${slug}`, { langs }).then((r) =>

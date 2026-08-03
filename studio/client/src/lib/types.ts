@@ -72,6 +72,36 @@ export interface Doc {
   totals: Partial<Record<Lang, { current: number; stale: number; missing: number }>>;
 }
 
+export const PROVIDERS = ["cli", "api"] as const;
+export type Provider = (typeof PROVIDERS)[number];
+
+/** How much to retranslate. `stale` also covers anything never translated. */
+export type Scope = "stale" | "all";
+
+export interface TranslateSettings {
+  provider: Provider;
+  /** Only ever held in localStorage and sent per request. Never persisted server-side. */
+  apiKey: string;
+  model: string;
+  scope: Scope;
+}
+
+export interface TranslateResult {
+  doc: Doc;
+  filled: number;
+  missing: string[];
+  unknown: string[];
+  batches: number;
+  usage?: { input?: number; output?: number; costUsd?: number };
+}
+
+export interface Health {
+  ok: boolean;
+  langs: Lang[];
+  defaultModel: string;
+  hasEnvKey: boolean;
+}
+
 export interface ReportSummary {
   slug: string;
   site: string;

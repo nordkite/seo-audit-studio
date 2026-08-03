@@ -32,6 +32,7 @@ interface Props {
   meta: Meta;
   counts: Record<Severity, number>;
   onChange: (next: Meta) => void;
+  disabled?: boolean;
 }
 
 const FIELDS: Array<[keyof Meta, string, string?]> = [
@@ -41,7 +42,7 @@ const FIELDS: Array<[keyof Meta, string, string?]> = [
   ["auditedAt", "Audit date", "2026-07-31"],
 ];
 
-export function MetaPanel({ meta, counts, onChange }: Props) {
+export function MetaPanel({ meta, counts, onChange, disabled }: Props) {
   const set = <K extends keyof Meta>(key: K, value: Meta[K]) => onChange({ ...meta, [key]: value });
 
   return (
@@ -52,6 +53,7 @@ export function MetaPanel({ meta, counts, onChange }: Props) {
             <div key={key} className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">{label}</Label>
               <Input
+                disabled={disabled}
                 className="text-sm"
                 placeholder={placeholder}
                 value={(meta[key] as string) ?? ""}
@@ -63,6 +65,7 @@ export function MetaPanel({ meta, counts, onChange }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Pages analysed</Label>
             <Input
+              disabled={disabled}
               type="number"
               min={0}
               className="text-sm"
@@ -74,6 +77,7 @@ export function MetaPanel({ meta, counts, onChange }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Score (0–100)</Label>
             <Input
+              disabled={disabled}
               type="number"
               min={0}
               max={100}
@@ -86,6 +90,7 @@ export function MetaPanel({ meta, counts, onChange }: Props) {
           <div className="space-y-1.5 sm:col-span-2">
             <Label className="text-xs text-muted-foreground">Stack (optional, one line)</Label>
             <Input
+              disabled={disabled}
               className="text-sm"
               placeholder="WordPress 7.0.2 · twentytwentytwo · GA4"
               value={meta.stack ?? ""}

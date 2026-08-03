@@ -14,7 +14,8 @@ changed or the user explicitly asks.
 
 ## Steps
 
-1. Read `reports/<slug>.json` and `i18n/glossary.json`.
+1. Read `reports/<slug>.json`, `i18n/glossary.json` and
+   `i18n/translation-rules.md`.
 
 2. Identify every translatable field missing the target language. Translatable
    fields are `summary`, `method`, and — on each entry of `findings`, `roadmap`,
@@ -38,26 +39,11 @@ changed or the user explicitly asks.
 
 ## Translation rules
 
-**Preserve verbatim — never translate:** every term in
-`i18n/glossary.json` → `doNotTranslate`, all HTML tags and attributes
-(`<h1>`, `rel="canonical"`, `lang="et"`), all URLs, file paths and slugs, and
-HTTP status codes as numerals.
-
-This is not a style preference. Estonian and Russian SEO practitioners use the
-English terms; a report saying "kanooniline URL" instead of `canonical` reads as
-amateur and is harder to action.
-
-**Localise:** decimal separators (`5.2 s` → `5,2 s`), thousands separators
-(`82,763 B` → `82 763 B`), and units where a native form exists (`KB` → `КБ` in
-Russian). Keep `ms`, `s`, `KiB` as-is.
-
-**Register:** write for a technical decision-maker, not a search engine. These
-reports are read by clients who are paying for clarity. Match the directness of
-the English source — do not soften findings in translation.
-
-**Estonian specifically:** runs roughly 15–20% longer than English. Prefer the
-tighter phrasing where two options exist; the PDF layout tolerates overflow but
-long strings push cards onto later pages and cost you density.
+**Read [i18n/translation-rules.md](../../i18n/translation-rules.md) and follow it.**
+Glossary handling, number localisation, register, Estonian length — it is all
+there, and it is not restated here on purpose: Report Studio loads the same file
+into its system prompt, so a rule written in two places would drift between the
+two paths and quietly produce two different house styles.
 
 ## After translating
 

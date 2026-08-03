@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Languages } from "lucide-react";
+import { AlertTriangle, Check, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,114 +9,123 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import type { Doc, Lang } from "@/lib/types";
+import { api } from "@/lib/api";
 import { LANG_LABEL } from "@/lib/report";
-
-interface LogLine {
-  kind: string;
-  text?: string;
-  parts?: LogLine[];
-  cost?: number;
-}
+import type { Doc, Lang, TranslateResult, TranslateSettings } from "@/lib/types";
 
 interface Props {
   slug: string;
   lang: Lang | null;
+  settings: TranslateSettings;
   onClose: () => void;
   onDone: (doc: Doc) => void;
 }
 
 /**
- * Runs the real /translate-report slash command via the claude CLI and streams
- * its progress. The editor is locked while this runs: the command rewrites the
- * JSON on disk, so an in-flight buffer would overwrite the translations on the
- * next save.
+ * Runs one translation and reports what it did.
+ *
+ * A single request, not a stream. The previous version held an EventSource
+ * open while an agent edited the file field by field; it re-opened on every
+ * parent re-render, and each re-open started the work again from scratch.
  */
-export function TranslateDialog({ slug, lang, onClose, onDone }: Props) {
-  const [lines, setLines] = useState<LogLine[]>([]);
-  const [state, setState] = useState<"running" | "done" | "error">("running");
+export function TranslateDialog({ slug, lang, settings, onClose, onDone }: Props) {
+  const [result, setResult] = useState<TranslateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const logRef = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Read through a ref so the request is not part of the effect's identity:
+  // a changed callback or a re-rendered parent must never re-fire it.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   useEffect(() => {
     if (!lang) return;
-    setLines([]);
-    setState("running");
+
+    const abort = new AbortController();
+    setResult(null);
     setError(null);
+    setBusy(true);
 
-    const es = new EventSource(`/api/translate/${slug}/${lang}`);
-    const push = (l: LogLine) => setLines((prev) => [...prev, l]);
+    api
+      .translate(slug, lang, settingsRef.current, abort.signal)
+      .then((r) => {
+        setResult(r);
+        onDoneRef.current(r.doc);
+      })
+      .catch((e) => {
+        if (abort.signal.aborted) return;
+        setError((e as Error).message);
+      })
+      .finally(() => setBusy(false));
 
-    es.addEventListener("start", () => push({ kind: "system", text: "starting claude…" }));
-    es.addEventListener("log", (e) => push(JSON.parse((e as MessageEvent).data)));
-    es.addEventListener("done", (e) => {
-      onDone(JSON.parse((e as MessageEvent).data));
-      setState("done");
-      es.close();
-    });
-    es.addEventListener("error", (e) => {
-      const raw = (e as MessageEvent).data;
-      setError(raw ? JSON.parse(raw).message : "Connection to the translate stream was lost.");
-      setState("error");
-      es.close();
-    });
+    return () => abort.abort();
+  }, [slug, lang]);
 
-    return () => es.close();
-  }, [slug, lang, onDone]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [lines]);
-
-  const flat = lines.flatMap((l) => (l.parts ? l.parts : [l]));
+  const usage = result?.usage;
 
   return (
-    <Dialog open={lang !== null} onOpenChange={(open) => !open && state !== "running" && onClose()}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={lang !== null} onOpenChange={(open) => !open && !busy && onClose()}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Languages className="size-4" />
-            Translating into {lang ? LANG_LABEL[lang] : ""}
+          <DialogTitle>
+            {busy ? "Translating" : error ? "Translation failed" : "Translated"} into{" "}
+            {lang ? LANG_LABEL[lang] : ""}
           </DialogTitle>
           <DialogDescription>
-            Running <code className="text-xs">/translate-report {slug} {lang}</code> through the
-            Claude Code CLI. Editing is locked until it finishes.
+            {settings.provider === "api"
+              ? "Claude API, using your key."
+              : "Claude Code, using your subscription."}
+            {busy && " Editing is locked until it finishes."}
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          ref={logRef}
-          className="h-72 space-y-1 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs"
-        >
-          {flat.map((l, i) => (
-            <div
-              key={i}
-              className={cn(
-                "leading-relaxed whitespace-pre-wrap",
-                l.kind === "tool" && "text-sev-opportunity",
-                l.kind === "system" && "text-muted-foreground",
-                l.kind === "stderr" && "text-destructive",
-                l.kind === "result" && "text-sev-pass"
-              )}
-            >
-              {l.kind === "tool" ? `→ ${l.text}` : l.text}
-              {l.cost != null && (
-                <span className="ml-2 text-muted-foreground">(${l.cost.toFixed(3)})</span>
-              )}
-            </div>
-          ))}
-          {state === "running" && (
+        <div className="min-h-24 space-y-2 text-sm">
+          {busy && (
             <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> working…
+              <Loader2 className="size-4 animate-spin" /> Working…
             </div>
           )}
-          {error && <div className="mt-2 whitespace-pre-wrap text-destructive">{error}</div>}
+
+          {error && <p className="whitespace-pre-wrap text-destructive">{error}</p>}
+
+          {result && !error && (
+            <>
+              <p className="flex items-center gap-2">
+                <Check className="size-4 text-sev-pass" />
+                {result.filled === 0
+                  ? "Nothing needed translating."
+                  : `${result.filled} field${result.filled === 1 ? "" : "s"} translated in ${
+                      result.batches
+                    } request${result.batches === 1 ? "" : "s"}.`}
+              </p>
+
+              {result.missing.length > 0 && (
+                <p className="flex items-start gap-2 text-sev-warning">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    {result.missing.length} field
+                    {result.missing.length === 1 ? "" : "s"} came back empty and stayed
+                    untranslated. Run it again to pick them up.
+                  </span>
+                </p>
+              )}
+
+              {usage && (usage.costUsd != null || usage.output != null) && (
+                <p className="text-xs text-muted-foreground">
+                  {usage.costUsd != null && `≈ $${usage.costUsd.toFixed(3)}`}
+                  {usage.input != null &&
+                    `${usage.costUsd != null ? " · " : ""}${usage.input} in / ${usage.output} out tokens`}
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         <DialogFooter>
-          <Button variant={state === "done" ? "default" : "outline"} onClick={onClose} disabled={state === "running"}>
-            {state === "running" ? "Running…" : "Close"}
+          <Button variant={result && !error ? "default" : "outline"} onClick={onClose} disabled={busy}>
+            {busy ? "Running…" : "Close"}
           </Button>
         </DialogFooter>
       </DialogContent>
