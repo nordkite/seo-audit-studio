@@ -190,7 +190,7 @@ export default function App() {
         </div>
       ) : (
         <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-          <div className="space-y-4 overflow-auto p-4">
+          <div className="min-h-0 space-y-4 overflow-auto p-4">
             <MetaPanel
               meta={report!.meta}
               counts={findingCounts}
@@ -276,7 +276,7 @@ export default function App() {
             </Section>
           </div>
 
-          <div className="hidden border-l xl:block">
+          <div className="hidden min-h-0 border-l xl:block">
             <PreviewPane report={report!} lang={lang} />
           </div>
         </div>
