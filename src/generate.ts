@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, resolve, basename } from "node:path";
-import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
-import { renderPdf } from "./pdf.js";
-import { SUPPORTED_LANGS, availableLangs } from "./i18n.js";
-import { validate } from "./validate.js";
+import { renderPdf } from "./pdf.ts";
+import { renderCover, renderBody } from "./render.ts";
+import { SUPPORTED_LANGS, availableLangs, isLang } from "./i18n.ts";
+import { validate } from "./validate.ts";
+import { loadBrand, BRAND_DIR } from "./brand.ts";
+import type { Lang, Report } from "./types.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 
 const USAGE = `
-nordkite seo-report — branded multilingual PDF SEO audits
+seo-report — white-label multilingual PDF SEO audits
 
   npm run report -- <report>            generate in the report's source language
   npm run report -- <report> --lang et  generate in Estonian
@@ -26,18 +27,29 @@ Options
   --html            also write the intermediate HTML, for debugging layout
   --help, -h
 
+Branding comes from brand/brand.json (or the folder in $BRAND_DIR).
+
 Examples
   npm run report -- naa-ee --all
   npm run report -- naa-ee --lang et --lang ru
   npm run report -- ./reports/naa-ee.json -o ~/Desktop
 `;
 
-function parseArgs(argv) {
-  const opts = { langs: [], out: join(ROOT, "out"), all: false, html: false, input: null };
+interface Options {
+  help?: boolean;
+  langs: string[];
+  out: string;
+  all: boolean;
+  html: boolean;
+  input: string | null;
+}
+
+function parseArgs(argv: string[]): Options {
+  const opts: Options = { langs: [], out: join(ROOT, "out"), all: false, html: false, input: null };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--help" || a === "-h") return { help: true };
+    if (a === "--help" || a === "-h") return { ...opts, help: true };
     else if (a === "--all" || a === "--all-langs") opts.all = true;
     else if (a === "--html") opts.html = true;
     else if (a === "--lang" || a === "-l") opts.langs.push(argv[++i]);
@@ -51,7 +63,7 @@ function parseArgs(argv) {
   return opts;
 }
 
-function resolveReportPath(input) {
+function resolveReportPath(input: string): string {
   const candidates = input.endsWith(".json")
     ? [resolve(input), join(ROOT, input)]
     : [join(ROOT, "reports", `${input}.json`), resolve(`${input}.json`)];
@@ -74,19 +86,28 @@ async function main() {
   }
 
   const path = resolveReportPath(opts.input);
-  const report = JSON.parse(readFileSync(path, "utf8"));
+  const report: Report = JSON.parse(readFileSync(path, "utf8"));
   validate(report, path);
+
+  // Load once up front so a broken brand.json fails before Chrome starts.
+  if (loadBrand().isExample) {
+    console.warn(
+      `  ! No brand config at ${join(BRAND_DIR, "brand.json")} — using the example brand.\n` +
+        `    Run \`npm run setup\` or copy brand.example/ to brand/ and edit it.`
+    );
+  }
 
   const source = report.meta.sourceLang ?? "en";
   const translated = availableLangs(report);
 
-  let langs;
-  if (opts.all) langs = translated;
-  else if (opts.langs.length) langs = opts.langs;
-  else langs = [source];
+  let requested: string[];
+  if (opts.all) requested = translated;
+  else if (opts.langs.length) requested = opts.langs;
+  else requested = [source];
 
-  for (const l of langs) {
-    if (!SUPPORTED_LANGS.includes(l)) {
+  const langs: Lang[] = [];
+  for (const l of requested) {
+    if (!isLang(l)) {
       throw new Error(`Unsupported language "${l}". Supported: ${SUPPORTED_LANGS.join(", ")}`);
     }
     if (!translated.includes(l)) {
@@ -96,6 +117,7 @@ async function main() {
           `Run /translate-report ${report.meta.slug ?? ""} ${l} to fill it in.`
       );
     }
+    langs.push(l);
   }
 
   mkdirSync(opts.out, { recursive: true });
@@ -111,14 +133,13 @@ async function main() {
     console.log(`  ✓ ${lang}  ${file}  (${kb} KB, ${Date.now() - started} ms)`);
 
     if (opts.html) {
-      const { renderCover, renderBody } = await import("./render.js");
       writeFileSync(join(opts.out, `${slug}-${lang}-cover.html`), renderCover(report, lang));
       writeFileSync(join(opts.out, `${slug}-${lang}-body.html`), renderBody(report, lang));
     }
   }
 }
 
-main().catch((err) => {
+main().catch((err: Error) => {
   console.error(`\n${err.message}\n`);
   process.exit(1);
 });

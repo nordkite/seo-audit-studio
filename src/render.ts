@@ -1,23 +1,21 @@
 import { readFileSync, existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-import { loadStrings, t, formatDate, formatNumber } from "./i18n.js";
+import { join } from "node:path";
+import { loadStrings, t, formatDate, formatNumber, type Strings } from "./i18n.ts";
+import { loadBrand, type Brand } from "./brand.ts";
+import {
+  SEVERITIES,
+  type CoreWebVitalsMetrics,
+  type Finding,
+  type Lang,
+  type Report,
+  type SearchConsoleMetrics,
+  type Section,
+  type Severity,
+} from "./types.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 
-export const BRAND = {
-  name: "Nordkite",
-  url: "https://nordkite.eu",
-  urlLabel: "nordkite.eu",
-  navy: "#293451",
-};
-
-const SEVERITIES = ["critical", "warning", "opportunity", "pass"];
-
-/** Where a custom section may be slotted into the body flow. */
-export const ANCHORS = ["summary", "breakdown", "findings", "roadmap", "notCovered"];
-
-const MIME = {
+const MIME: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -26,29 +24,43 @@ const MIME = {
   svg: "image/svg+xml",
 };
 
-const esc = (s) =>
+const esc = (s: unknown): string =>
   String(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
-/** Brand mark, recoloured for whichever surface it sits on. */
-function logoSvg({ color } = {}) {
-  const raw = readFileSync(join(ROOT, "brand", "nordkite-logo.svg"), "utf8");
-  if (!color) return raw;
-  return raw.replace(/fill="#293451"/gi, `fill="${color}"`);
+/**
+ * The brand mark for one surface. With no dark variant, the cover knocks the
+ * regular logo out to white (see .logo--knockout); with no logo at all, the
+ * brand name stands in as a wordmark.
+ */
+function logo(brand: Brand, { onDark = false } = {}): string {
+  if (onDark && brand.logoOnDark) return `<img src="${esc(brand.logoOnDark)}" alt="${esc(brand.name)}">`;
+  if (brand.logo) {
+    const knockout = onDark ? ` class="logo--knockout"` : "";
+    return `<img${knockout} src="${esc(brand.logo)}" alt="${esc(brand.name)}">`;
+  }
+  return `<span class="wordmark">${esc(brand.name)}</span>`;
+}
+
+/** The brand's website as a link, or its name when it has none. */
+function brandLink(brand: Brand): string {
+  return brand.website
+    ? `<a href="${esc(brand.website)}">${esc(brand.websiteLabel)}</a>`
+    : esc(brand.name);
 }
 
 /**
  * Inline an image as a data URI.
  *
- * Same constraint as the logo: pdf.js loads HTML through setContent(), which
+ * Same constraint as the logo: pdf.ts loads HTML through setContent(), which
  * has no base URL, so a relative src resolves to nothing and Chrome drops the
  * image without erroring. Anything the PDF draws must be embedded in the markup.
  */
-function dataUri(relPath) {
-  const ext = String(relPath).split(".").pop().toLowerCase();
+function dataUri(relPath: string): string {
+  const ext = String(relPath).split(".").pop()!.toLowerCase();
   const mime = MIME[ext];
   if (!mime) {
     throw new Error(
@@ -62,18 +74,20 @@ function dataUri(relPath) {
   return `data:${mime};base64,${readFileSync(abs).toString("base64")}`;
 }
 
-function scoreBand(score) {
+type Band = "excellent" | "good" | "needsWork" | "critical";
+
+function scoreBand(score: number): Band {
   if (score >= 90) return "excellent";
   if (score >= 70) return "good";
   if (score >= 50) return "needsWork";
   return "critical";
 }
 
-function bandTone(band) {
+function bandTone(band: Band): string {
   return { excellent: "#4ec98a", good: "#8fd0a8", needsWork: "#e8b04b", critical: "#e2705f" }[band];
 }
 
-function scoreDial(score, band) {
+function scoreDial(score: number, band: Band): string {
   const C = 2 * Math.PI * 45;
   const filled = (Math.max(0, Math.min(100, score)) / 100) * C;
   return `
@@ -86,10 +100,10 @@ function scoreDial(score, band) {
     </svg>`;
 }
 
-function findingCard(f, lang, sourceLang, s) {
+function findingCard(f: Finding, lang: Lang, sourceLang: Lang, s: Strings): string {
   const isPass = f.severity === "pass";
   const marker = isPass ? "✓" : "!";
-  const foot = [];
+  const foot: string[] = [];
 
   if (f.impact) {
     foot.push(
@@ -123,7 +137,14 @@ function findingCard(f, lang, sourceLang, s) {
     </article>`;
 }
 
-function severitySection(sev, findings, lang, sourceLang, s, { breakBefore }) {
+function severitySection(
+  sev: Severity,
+  findings: Finding[],
+  lang: Lang,
+  sourceLang: Lang,
+  s: Strings,
+  { breakBefore }: { breakBefore: boolean }
+): string {
   const items = findings.filter((f) => f.severity === sev);
   if (!items.length) return "";
 
@@ -143,7 +164,7 @@ function severitySection(sev, findings, lang, sourceLang, s, { breakBefore }) {
  * carry no severity and no audit metadata; they exist so a report can show
  * something a finding card cannot, such as a SERP screenshot.
  */
-function customSection(sec, lang, sourceLang) {
+function customSection(sec: Section, lang: Lang, sourceLang: Lang): string {
   const img = sec.image;
   const figure = img?.src
     ? `
@@ -170,16 +191,23 @@ const CWV = {
   cls: { good: 0.1, poor: 0.25 },
 };
 
-function cwvRating(metric, value) {
+type CwvMetric = keyof typeof CWV;
+type Rating = "good" | "needsImprovement" | "poor";
+
+function cwvRating(metric: CwvMetric, value: number): Rating {
   const th = CWV[metric];
   if (value <= th.good) return "good";
   if (value <= th.poor) return "needsImprovement";
   return "poor";
 }
 
-const RATING_TONE = { good: "var(--pass)", needsImprovement: "var(--warning)", poor: "var(--critical)" };
+const RATING_TONE: Record<Rating, string> = {
+  good: "var(--pass)",
+  needsImprovement: "var(--warning)",
+  poor: "var(--critical)",
+};
 
-function metricCell(value, label, { tone, sub } = {}) {
+function metricCell(value: string, label: string, { tone, sub }: { tone?: string; sub?: string } = {}): string {
   return `
       <div class="glance__cell"${tone ? ` style="--tone: ${tone}"` : ""}>
         <div class="glance__n">${esc(value)}</div>
@@ -188,13 +216,18 @@ function metricCell(value, label, { tone, sub } = {}) {
       </div>`;
 }
 
+const numberFormat =
+  (locale: string) =>
+  (v: number, opts?: Intl.NumberFormatOptions): string =>
+    new Intl.NumberFormat(locale, opts).format(v);
+
 /**
  * Measured numbers from Search Console. Language-neutral by design: only the
  * labels come from i18n, and queries are what users typed, so they are never
  * translated.
  */
-function searchConsoleSection(gsc, s, locale) {
-  const n = (v, opts) => new Intl.NumberFormat(locale, opts).format(v);
+function searchConsoleSection(gsc: SearchConsoleMetrics, s: Strings, locale: string): string {
+  const n = numberFormat(locale);
   const cells = [
     metricCell(n(gsc.clicks), s.metrics.clicks),
     metricCell(n(gsc.impressions), s.metrics.impressions),
@@ -246,24 +279,24 @@ function searchConsoleSection(gsc, s, locale) {
  * are not interchangeable, and a client reading the PDF cannot tell them apart
  * — so the source is always printed, never implied.
  */
-function coreWebVitalsSection(cwv, s, locale) {
-  const n = (v, opts) => new Intl.NumberFormat(locale, opts).format(v);
-  const secs = (ms) => `${n(ms / 1000, { maximumFractionDigits: 1 })} s`;
-  const cell = (metric, shown) =>
+function coreWebVitalsSection(cwv: CoreWebVitalsMetrics, s: Strings, locale: string): string {
+  const n = numberFormat(locale);
+  const secs = (ms: number) => `${n(ms / 1000, { maximumFractionDigits: 1 })} s`;
+  const cell = (metric: CwvMetric, value: number, shown: string) =>
     metricCell(shown, metric.toUpperCase(), {
-      tone: RATING_TONE[cwvRating(metric, cwv[metric])],
-      sub: s.metrics.ratings[cwvRating(metric, cwv[metric])],
+      tone: RATING_TONE[cwvRating(metric, value)],
+      sub: s.metrics.ratings[cwvRating(metric, value)],
     });
 
   const cells = [
-    cwv.lcp != null ? cell("lcp", secs(cwv.lcp)) : "",
-    cwv.inp != null ? cell("inp", `${n(Math.round(cwv.inp))} ms`) : "",
-    cwv.cls != null ? cell("cls", n(cwv.cls, { maximumFractionDigits: 2 })) : "",
+    cwv.lcp != null ? cell("lcp", cwv.lcp, secs(cwv.lcp)) : "",
+    cwv.inp != null ? cell("inp", cwv.inp, `${n(Math.round(cwv.inp))} ms`) : "",
+    cwv.cls != null ? cell("cls", cwv.cls, n(cwv.cls, { maximumFractionDigits: 2 })) : "",
     cwv.performance != null ? metricCell(n(cwv.performance), s.metrics.performance) : "",
   ].join("");
 
   const source = cwv.source === "field" ? s.metrics.fieldNote : s.metrics.labNote;
-  const device = s.metrics.devices[cwv.strategy] ?? cwv.strategy ?? "";
+  const device = s.metrics.devices[cwv.strategy ?? ""] ?? cwv.strategy ?? "";
 
   return `
     <section class="section section--metrics">
@@ -277,7 +310,8 @@ function coreWebVitalsSection(cwv, s, locale) {
     </section>`;
 }
 
-function shell(lang, title, body) {
+/** The brand colour goes in as a custom property; report.css derives its tints. */
+function shell(lang: Lang, title: string, body: string, brand: Brand): string {
   const css = readFileSync(join(ROOT, "templates", "report.css"), "utf8");
   return `<!doctype html>
 <html lang="${lang}">
@@ -285,21 +319,27 @@ function shell(lang, title, body) {
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 <style>${css}</style>
+<style>:root { --brand: ${brand.primary}; }</style>
 </head>
 <body>${body}</body>
 </html>`;
 }
 
+function severityCounts(report: Report): Record<Severity, number> {
+  return Object.fromEntries(
+    SEVERITIES.map((sev) => [sev, report.findings.filter((f) => f.severity === sev).length])
+  ) as Record<Severity, number>;
+}
+
 /** Cover page — rendered as its own zero-margin document so it bleeds. */
-export function renderCover(report, lang) {
+export function renderCover(report: Report, lang: Lang): string {
   const s = loadStrings(lang);
+  const brand = loadBrand();
   const sourceLang = report.meta.sourceLang ?? "en";
   const { locale } = s;
   const m = report.meta;
 
-  const counts = Object.fromEntries(
-    SEVERITIES.map((sev) => [sev, report.findings.filter((f) => f.severity === sev).length])
-  );
+  const counts = severityCounts(report);
   const band = scoreBand(m.score);
   const countLine = SEVERITIES.filter((sev) => sev !== "pass")
     .map((sev) => `${counts[sev]} ${s.counts[sev]}`)
@@ -310,7 +350,7 @@ export function renderCover(report, lang) {
     `${s.doc.kicker} — ${m.site}`,
     `
 <div class="cover">
-  <div class="cover__logo">${logoSvg({ color: "#FFFFFF" })}</div>
+  <div class="cover__logo">${logo(brand, { onDark: true })}</div>
 
   <div class="cover__kicker">${esc(s.doc.kicker)}</div>
   <h1 class="cover__site">${esc(m.site)}</h1>
@@ -334,7 +374,7 @@ export function renderCover(report, lang) {
     </div>
     <div>
       <dt>${esc(s.doc.preparedBy)}</dt>
-      <dd><a href="${BRAND.url}">${esc(BRAND.urlLabel)}</a></dd>
+      <dd>${brandLink(brand)}</dd>
     </div>
     <div>
       <dt>${esc(s.doc.auditedOn)}</dt>
@@ -353,19 +393,19 @@ export function renderCover(report, lang) {
         : ""
     }
   </dl>
-</div>`
+</div>`,
+    brand
   );
 }
 
 /** Body pages — rendered with margins so the running header/footer fit. */
-export function renderBody(report, lang) {
+export function renderBody(report: Report, lang: Lang): string {
   const s = loadStrings(lang);
+  const brand = loadBrand();
   const sourceLang = report.meta.sourceLang ?? "en";
   const m = report.meta;
 
-  const counts = Object.fromEntries(
-    SEVERITIES.map((sev) => [sev, report.findings.filter((f) => f.severity === sev).length])
-  );
+  const counts = severityCounts(report);
 
   const glance = SEVERITIES.map(
     (sev) => `
@@ -397,11 +437,13 @@ export function renderBody(report, lang) {
 
   // Custom sections slot in after a named built-in section. The built-in flow
   // itself stays fixed — a report always reads summary → breakdown → findings.
-  const at = (anchor) =>
+  const at = (anchor: string) =>
     (report.sections ?? [])
       .filter((sec) => (sec.after ?? "summary") === anchor)
       .map((sec) => customSection(sec, lang, sourceLang))
       .join("");
+
+  const contact = [brand.email, brand.phone].filter(Boolean).map(esc).join(" · ");
 
   return shell(
     lang,
@@ -456,14 +498,16 @@ export function renderBody(report, lang) {
   ${at("notCovered")}
 
   <div class="endslug">
-    <div class="endslug__logo">${logoSvg()}</div>
+    <div class="endslug__logo">${logo(brand)}</div>
     <div class="endslug__text">
-      <a href="${BRAND.url}">${esc(BRAND.urlLabel)}</a><br>
+      ${brandLink(brand)}<br>
+      ${contact ? `${contact}<br>` : ""}
       ${esc(s.doc.confidential)}
     </div>
   </div>
 
-</main>`
+</main>`,
+    brand
   );
 }
 
@@ -472,22 +516,23 @@ export function renderBody(report, lang) {
  * CSS, no external assets, and a default font-size of ~0. Everything must be
  * inline, and page.pdf() margins must reserve vertical room or these clip.
  */
-export function runningTemplates(report, lang) {
+export function runningTemplates(report: Report, lang: Lang): { header: string; footer: string } {
   const s = loadStrings(lang);
+  const brand = loadBrand();
   const m = report.meta;
   const base = "font-family: Helvetica, Arial, sans-serif; font-size: 7pt; color: #8a909c;";
 
   const header = `
     <div style="${base} width: 100%; padding: 0 18mm; margin-top: 8mm;
                 display: flex; justify-content: space-between; align-items: center;">
-      <span style="color:${BRAND.navy}; font-weight: 700;">${esc(m.site)}</span>
+      <span style="color:${brand.primary}; font-weight: 700;">${esc(m.site)}</span>
       <span>${esc(s.doc.kicker)}</span>
     </div>`;
 
   const footer = `
     <div style="${base} width: 100%; padding: 0 18mm; margin-bottom: 7mm;
                 display: flex; justify-content: space-between; align-items: center;">
-      <span>${esc(BRAND.urlLabel)}</span>
+      <span>${esc(brand.websiteLabel)}</span>
       <span>${esc(s.doc.page)} <span class="pageNumber"></span> ${esc(s.doc.of)} <span class="totalPages"></span></span>
     </div>`;
 

@@ -1,5 +1,12 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { systemPrompt, userPrompt } from "./prompt.js";
+import { httpError } from "../store.ts";
+import {
+  systemPrompt,
+  userPrompt,
+  type PendingField,
+  type ProviderReply,
+  type TranslateOptions,
+} from "./prompt.ts";
 
 /**
  * Translate through the Claude API with a caller-supplied key.
@@ -34,37 +41,30 @@ const SCHEMA = {
   additionalProperties: false,
 };
 
-function friendly(err) {
+function friendly(err: unknown): unknown {
   if (err instanceof Anthropic.AuthenticationError) {
-    return Object.assign(new Error("The Claude API key was rejected. Check it in Settings."), {
-      status: 401,
-    });
+    return httpError(401, "The Claude API key was rejected. Check it in Settings.");
   }
   if (err instanceof Anthropic.PermissionDeniedError) {
-    return Object.assign(
-      new Error("That key exists but is not allowed to call the Messages API."),
-      { status: 403 }
-    );
+    return httpError(403, "That key exists but is not allowed to call the Messages API.");
   }
   if (err instanceof Anthropic.RateLimitError) {
-    return Object.assign(
-      new Error("Claude API rate limit hit. Wait a moment and translate again."),
-      { status: 429 }
-    );
+    return httpError(429, "Claude API rate limit hit. Wait a moment and translate again.");
   }
   if (err instanceof Anthropic.APIError) {
-    return Object.assign(new Error(`Claude API error ${err.status}: ${err.message}`), {
-      status: 502,
-    });
+    return httpError(502, `Claude API error ${err.status}: ${err.message}`);
   }
   return err;
 }
 
-export function available({ apiKey }) {
+export function available({ apiKey }: { apiKey?: string }): boolean {
   return Boolean(apiKey || process.env.ANTHROPIC_API_KEY);
 }
 
-export async function translate(fields, { from, to, apiKey, model = DEFAULT_MODEL }) {
+export async function translate(
+  fields: PendingField[],
+  { from, to, apiKey, model = DEFAULT_MODEL }: TranslateOptions
+): Promise<ProviderReply> {
   const client = new Anthropic({ apiKey: apiKey || process.env.ANTHROPIC_API_KEY });
 
   try {
@@ -87,14 +87,13 @@ export async function translate(fields, { from, to, apiKey, model = DEFAULT_MODE
     });
 
     if (message.stop_reason === "max_tokens") {
-      throw Object.assign(
-        new Error("Claude ran out of output space mid-batch. Try translating again."),
-        { status: 502 }
-      );
+      throw httpError(502, "Claude ran out of output space mid-batch. Try translating again.");
     }
 
-    const text = message.content.find((b) => b.type === "text")?.text ?? "";
-    const { translations } = JSON.parse(text);
+    const block = message.content.find((b) => b.type === "text");
+    const { translations }: { translations: { key: string; text: string }[] } = JSON.parse(
+      block?.type === "text" ? block.text : ""
+    );
 
     return {
       translations: Object.fromEntries(translations.map((t) => [t.key, t.text])),

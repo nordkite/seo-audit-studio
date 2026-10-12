@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import type { TranslateSettings } from "./types";
 
-const KEY = "nordkite-studio-translate";
+const KEY = "seo-audit-studio-translate";
 
 const DEFAULTS: TranslateSettings = {
   provider: "cli",

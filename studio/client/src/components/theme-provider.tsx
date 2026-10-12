@@ -12,7 +12,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>({
   setTheme: () => null,
 });
 
-const STORAGE_KEY = "nordkite-studio-theme";
+const STORAGE_KEY = "seo-audit-studio-theme";
 
 /**
  * shadcn's Vite dark-mode provider.

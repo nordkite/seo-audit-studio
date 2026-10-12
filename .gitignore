@@ -4,3 +4,6 @@ out/
 *.log
 .studio-backups/
 studio/client/dist/
+
+# Your own branding (name, logo, colours). Template: brand.example/
+brand/

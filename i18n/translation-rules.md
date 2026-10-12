@@ -1,10 +1,10 @@
 # Translation rules
 
-The rules every translation of a Nordkite report must follow, whoever is doing
+The rules every translation of a report must follow, whoever is doing
 the translating.
 
 This file is the single source. It is read verbatim into the system prompt by
-`studio/lib/translate/prompt.js`, and `.claude/commands/translate-report.md`
+`studio/lib/translate/prompt.ts`, and `.claude/commands/translate-report.md`
 points here rather than restating it. Edit it once and both paths change. The
 list of protected terms is not here — it is `i18n/glossary.json`, which is
 injected alongside this file.

@@ -13,8 +13,33 @@
  * cannot slip through an audit again. Drop it once claude-seo covers it.
  *
  * Pages are fetched as Twitterbot, so the result is what X's crawler sees.
- * Node built-ins only, like doctor.js.
+ * Node built-ins only, like doctor.ts.
  */
+
+interface Issue {
+  id: string;
+  message: string;
+  urls: string[];
+}
+
+type Page = { url: string; error: string; tags?: never } | { url: string; tags: [string, string][]; error?: never };
+
+interface ImageCheck {
+  url: string;
+  status?: number;
+  type?: string;
+  bytes?: number | null;
+  problem?: string;
+}
+
+export interface SocialResult {
+  site: string;
+  userAgent: string;
+  pagesChecked: number;
+  urls: string[];
+  issues: Issue[];
+  images: ImageCheck[];
+}
 
 const UA = "Twitterbot/1.0";
 const MAX_PAGES = 500;
@@ -52,7 +77,7 @@ const SINGLE = [
   "twitter:image",
 ];
 
-async function get(url, method = "GET") {
+async function get(url: string, method = "GET"): Promise<Response> {
   const res = await fetch(url, {
     method,
     redirect: "follow",
@@ -62,7 +87,7 @@ async function get(url, method = "GET") {
   return res;
 }
 
-function decode(s) {
+function decode(s: string): string {
   return s
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
@@ -72,11 +97,11 @@ function decode(s) {
 }
 
 /** All <meta property|name=… content=…> pairs, in document order. */
-function metaTags(html) {
+function metaTags(html: string): [string, string][] {
   const head = html.split(/<\/head>/i)[0];
-  const tags = [];
+  const tags: [string, string][] = [];
   for (const [tag] of head.matchAll(/<meta\b[^>]*>/gi)) {
-    const attrs = {};
+    const attrs: Record<string, string> = {};
     for (const m of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g)) {
       attrs[m[1].toLowerCase()] = decode(m[2] ?? m[3] ?? m[4] ?? "");
     }
@@ -87,19 +112,19 @@ function metaTags(html) {
 }
 
 /** Sitemap URLs: robots.txt Sitemap: lines first, then the usual locations. */
-async function sitemapUrls(origin) {
-  const seeds = [];
+async function sitemapUrls(origin: string): Promise<string[]> {
+  const seeds: string[] = [];
   try {
     const robots = await (await get(`${origin}/robots.txt`)).text();
     for (const m of robots.matchAll(/^\s*sitemap:\s*(\S+)/gim)) seeds.push(m[1]);
   } catch {}
   if (!seeds.length) seeds.push(`${origin}/sitemap_index.xml`, `${origin}/sitemap.xml`);
 
-  const pages = new Set();
-  const seen = new Set();
+  const pages = new Set<string>();
+  const seen = new Set<string>();
   const queue = [...seeds];
   while (queue.length && pages.size < MAX_PAGES) {
-    const sm = queue.shift();
+    const sm = queue.shift()!;
     if (seen.has(sm)) continue;
     seen.add(sm);
     let xml;
@@ -117,8 +142,8 @@ async function sitemapUrls(origin) {
   return [...pages];
 }
 
-async function pool(items, fn) {
-  const out = new Array(items.length);
+async function pool<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
   let i = 0;
   const worker = async () => {
     while (i < items.length) {
@@ -130,17 +155,17 @@ async function pool(items, fn) {
   return out;
 }
 
-async function checkPage(url) {
+async function checkPage(url: string): Promise<Page> {
   try {
     const res = await get(url);
     if (!res.ok) return { url, error: `HTTP ${res.status}` };
     return { url, tags: metaTags(await res.text()) };
   } catch (err) {
-    return { url, error: err.message };
+    return { url, error: (err as Error).message };
   }
 }
 
-async function checkImage(url) {
+async function checkImage(url: string): Promise<ImageCheck> {
   if (!/^https?:\/\//i.test(url)) return { url, problem: "not an absolute URL" };
   try {
     let res = await get(url, "HEAD");
@@ -153,29 +178,29 @@ async function checkImage(url) {
     if (bytes && bytes > X_IMAGE_MAX_BYTES) return { ...info, problem: "larger than X's 5 MB limit" };
     return info;
   } catch (err) {
-    return { url, problem: err.message };
+    return { url, problem: (err as Error).message };
   }
 }
 
-export async function checkSocial(siteUrl) {
+export async function checkSocial(siteUrl: string): Promise<SocialResult> {
   const origin = new URL(siteUrl).origin;
   const urls = await sitemapUrls(origin);
   if (!urls.length) urls.push(new URL(siteUrl).href);
 
   const pages = await pool(urls, checkPage);
-  const issues = new Map();
-  const add = (id, message, url, detail) => {
+  const issues = new Map<string, Issue>();
+  const add = (id: string, message: string, url: string, detail?: string) => {
     if (!issues.has(id)) issues.set(id, { id, message, urls: [] });
-    issues.get(id).urls.push(detail ? `${url} — ${detail}` : url);
+    issues.get(id)!.urls.push(detail ? `${url} — ${detail}` : url);
   };
 
-  const imageUrls = new Map(); // image URL → pages using it
+  const imageUrls = new Map<string, string[]>(); // image URL → pages using it
   for (const p of pages) {
-    if (p.error) {
+    if (p.tags === undefined) {
       add("fetch-failed", "Page could not be fetched as Twitterbot", p.url, p.error);
       continue;
     }
-    const by = new Map();
+    const by = new Map<string, string[]>();
     for (const [k, v] of p.tags) by.set(k, [...(by.get(k) ?? []), v]);
 
     for (const k of REQUIRED) {
@@ -198,7 +223,7 @@ export async function checkSocial(siteUrl) {
   const images = await pool([...imageUrls.keys()], checkImage);
   for (const img of images) {
     if (img.problem) {
-      for (const page of imageUrls.get(img.url)) add("image-broken", "Share image does not work for X", page, `${img.url}: ${img.problem}`);
+      for (const page of imageUrls.get(img.url) ?? []) add("image-broken", "Share image does not work for X", page, `${img.url}: ${img.problem}`);
     }
   }
 

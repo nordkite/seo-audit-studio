@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // `npm run studio:dev` runs Vite alongside studio/server.js; the API lives
+    // `npm run studio:dev` runs Vite alongside studio/server.ts; the API lives
     // on the server, everything else is served by Vite with hot reload.
     proxy: { "/api": { target: `http://127.0.0.1:${STUDIO_PORT}`, changeOrigin: true } },
   },

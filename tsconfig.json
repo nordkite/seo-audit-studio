@@ -1,12 +1,24 @@
 {
+  // Type-checks the Node side: src/, scripts/, studio/server.ts, studio/lib/.
+  // Node runs these .ts files directly (type stripping), so nothing is emitted
+  // and only erasable syntax is allowed: no enums, namespaces or parameter
+  // properties. The Studio UI has its own config in studio/client/tsconfig.json.
+  //
+  // `paths` is not used by this code. It is here because `npx shadcn add` reads
+  // the alias from the tsconfig beside package.json.
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "types": ["node"],
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
     "paths": { "@/*": ["./studio/client/src/*"] }
   },
-  "include": ["studio/client/src"]
+  "include": ["src", "scripts", "studio/*.ts", "studio/lib"]
 }

@@ -118,7 +118,7 @@ export function blankSection(taken: Iterable<string>): Section {
   };
 }
 
-/** Field paths must match studio/lib/state.js exactly or badges point at nothing. */
+/** Field paths must match studio/lib/state.ts exactly or badges point at nothing. */
 export const paths = {
   summary: () => "summary",
   method: () => "method",

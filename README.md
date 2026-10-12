@@ -1,11 +1,13 @@
-# Nordkite SEO Reports
+# SEO Audit Studio
 
-Branded, multilingual PDF SEO audit reports. Audit data lives as structured JSON;
-the PDF is a pure function of `(report, language)`, so the same audit renders in
-English, Estonian and Russian without being re-run.
+White-label, multilingual PDF SEO audit reports for agencies and consultants.
+Audit data lives as structured JSON; the PDF is a pure function of
+`(report, language)`, so the same audit renders in English, Estonian and Russian
+without being re-run. Your name, logo and colour go on every page, configured
+once in `brand/`.
 
 ```bash
-npm install
+npm run setup                      # also creates brand/ from brand.example/
 npm run report -- naa-ee --all
 # → out/SEO-Audit-naa-ee-en.pdf
 # → out/SEO-Audit-naa-ee-et.pdf
@@ -31,6 +33,41 @@ Then open Claude Code in this folder and run, once:
 
 Check everything at any time with `npm run doctor`. It prints the fix for
 anything missing.
+
+## Branding (white label)
+
+Each user's branding lives in `brand/`, which is git-ignored. `npm run setup`
+creates it from the tracked template `brand.example/`:
+
+```
+brand/
+  brand.json         name, website, email, phone, logo file names, primary colour
+  logo.svg           for white pages
+  logo-on-dark.svg   for the cover (optional)
+```
+
+```json
+{
+  "name": "Acme Digital",
+  "website": "https://acme.example",
+  "email": "seo@acme.example",
+  "phone": "+372 555 0100",
+  "logo": "logo.svg",
+  "logoOnDark": "logo-on-dark.svg",
+  "colors": { "primary": "#1f3a5f" }
+}
+```
+
+Only `name` is required. A logo is a file in `brand/` or an `https://` URL, and
+can be SVG, PNG, JPG, WebP or GIF. The primary colour fills the cover and draws
+headings and rules; its lighter tints are derived from it. The PDF's author,
+creator and producer metadata are set to `name`, so nothing in the file names
+this tool. Every field is described in
+[brand.example/README.md](brand.example/README.md).
+
+`BRAND_DIR=path/to/brand` points a single run at a different folder, for agencies
+rendering under more than one brand. Without `brand/brand.json` the renderer
+falls back to the example brand and warns, and the doctor flags it.
 
 **Installing the plugin by hand.** `/plugin` only works in Claude Code's
 terminal version (run `claude`, then type it). It does not work in the VS Code
@@ -165,16 +202,18 @@ i18n/{en,et,ru}.json      report chrome — section titles, labels, score bands
 i18n/glossary.json        terms that must never be translated
 i18n/translation-rules.md the translation prompt, shared by every path
 templates/report.css      print stylesheet (A4, physical units)
-src/render.js             (report, lang) → HTML
-src/pdf.js                HTML → PDF via headless Chrome, two-pass + merge
-src/validate.js           report rules, shared by the CLI and the Studio
-src/generate.js           CLI
-studio/server.js          Studio API — node:http
+src/types.ts              the report schema, shared by the CLI, server and Studio UI
+src/brand.ts              loads and checks brand/brand.json
+src/render.ts             (report, lang) → HTML
+src/pdf.ts                HTML → PDF via headless Chrome, two-pass + merge
+src/validate.ts           report rules, shared by the CLI and the Studio
+src/generate.ts           CLI
+studio/server.ts          Studio API — node:http
 studio/lib/translate/     translation providers behind one interface
 studio/client/            Studio UI — React + Tailwind + shadcn/ui
-brand/                    logo, recoloured per surface at render time
-scripts/doctor.js         environment check, also the /new-audit preflight
-scripts/setup.js          npm install + claude-seo plugin install + doctor
+brand.example/            white-label template, copied to brand/ (git-ignored) by setup
+scripts/doctor.ts         environment check, also the /new-audit preflight
+scripts/setup.ts          npm install + claude-seo plugin install + doctor
 .claude/settings.json     declares the claude-seo plugin for this project
 .claude/commands/         /new-audit, /translate-report, /seo-report
 ```
@@ -230,7 +269,7 @@ from Tailwind's content glob and contains no utility classes.
 
 Chrome applies `headerTemplate`/`footerTemplate` to every page with no way to skip
 the first, so a full-bleed cover and numbered body pages can't come from one pass.
-`src/pdf.js` renders the cover at zero margins, the body with margins reserved for
+`src/pdf.ts` renders the cover at zero margins, the body with margins reserved for
 the running header/footer, then merges with `pdf-lib`. Page numbers therefore count
 body pages only — which is also correct print convention, since a cover is never
 folio'd.
@@ -247,7 +286,7 @@ folio'd.
 
 ## Adding a language
 
-1. Add the code to `SUPPORTED_LANGS` in [src/i18n.js](src/i18n.js)
+1. Add the code to `LANGS` in [src/types.ts](src/types.ts)
 2. Copy `i18n/en.json` to `i18n/<code>.json` and translate it — this is the fixed
    report chrome, translated once and reused by every report forever
 3. Run `/translate-report <slug> <code>` per report to fill in the findings
@@ -275,9 +314,26 @@ pdftoppm -png -r 90 -f 2 -l 4 out/SEO-Audit-naa-ee-en.pdf out/_check
 
 Then look at the PNGs. `pdftoppm` comes from poppler (`brew install poppler`).
 
+## TypeScript
+
+Everything is TypeScript, and nothing is compiled. Node 22.18+ runs `.ts` files
+directly by stripping the types, so `npm run report` and `npm run studio` start
+with no build step and `npm ci --omit=dev` still renders. Two consequences:
+
+- Only erasable syntax: no `enum`, `namespace` or constructor parameter
+  properties. `erasableSyntaxOnly` in `tsconfig.json` enforces it.
+- Relative imports name the `.ts` file: `import { t } from "./i18n.ts"`.
+
+Types are checked separately: `npm run typecheck` covers the Node side
+(`tsconfig.json`) and the Studio UI (`studio/client/tsconfig.json`). The report
+schema in `src/types.ts` is shared by both, so a schema change is a type error
+everywhere it matters.
+
 ## Requirements
 
-Node ≥ 20. `npm install` pulls its own Chromium via Puppeteer.
+Node ≥ 22.18. `npm install` pulls its own Chromium via Puppeteer. `.npmrc` sets
+`engine-strict`, so an older Node fails at install with a clear message rather
+than at the first `.ts` file.
 
 For auditing, you also need Claude Code, the claude-seo plugin, and Python 3.10+
 (3.12 or 3.13 recommended). See [Setup](#setup).

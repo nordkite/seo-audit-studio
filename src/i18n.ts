@@ -1,13 +1,23 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { LANGS, type I18n, type Lang, type Report } from "./types.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 
-export const SUPPORTED_LANGS = ["en", "et", "ru"];
+export const SUPPORTED_LANGS: readonly Lang[] = LANGS;
 
-export function loadStrings(lang) {
-  if (!SUPPORTED_LANGS.includes(lang)) {
+export function isLang(lang: unknown): lang is Lang {
+  return SUPPORTED_LANGS.includes(lang as Lang);
+}
+
+/**
+ * The fixed report chrome from i18n/<lang>.json. Loosely typed: the shape is
+ * whatever those files hold, and render.ts reads it by key.
+ */
+export type Strings = { locale: string } & Record<string, any>;
+
+export function loadStrings(lang: string): Strings {
+  if (!isLang(lang)) {
     throw new Error(
       `Unsupported language "${lang}". Supported: ${SUPPORTED_LANGS.join(", ")}`
     );
@@ -22,19 +32,19 @@ export function loadStrings(lang) {
  * missing we fall back to the source language rather than rendering "undefined"
  * — a partially translated report is still a usable report.
  */
-export function t(field, lang, sourceLang = "en") {
+export function t(field: string | I18n | null | undefined, lang: Lang, sourceLang: Lang = "en"): string {
   if (field == null) return "";
   if (typeof field === "string") return field;
   return field[lang] ?? field[sourceLang] ?? field.en ?? "";
 }
 
 /** Returns the langs a report is genuinely translated into. */
-export function availableLangs(report) {
-  const probe = report.summary ?? {};
+export function availableLangs(report: Partial<Report>): Lang[] {
+  const probe: I18n = report.summary ?? {};
   return SUPPORTED_LANGS.filter((l) => typeof probe[l] === "string" && probe[l].length);
 }
 
-export function formatDate(iso, locale) {
+export function formatDate(iso: string, locale: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat(locale, {
@@ -45,6 +55,6 @@ export function formatDate(iso, locale) {
   }).format(d);
 }
 
-export function formatNumber(n, locale) {
+export function formatNumber(n: number, locale: string): string {
   return new Intl.NumberFormat(locale).format(n);
 }

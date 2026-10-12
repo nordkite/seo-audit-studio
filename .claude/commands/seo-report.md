@@ -1,5 +1,5 @@
 ---
-description: Generate a branded Nordkite PDF SEO report from a report JSON, in one or more languages.
+description: Generate a branded PDF SEO report from a report JSON, in one or more languages.
 argument-hint: <report-slug> [--lang et|ru|en] [--all]
 allowed-tools: Bash, Read, Glob
 ---
@@ -26,11 +26,14 @@ Generate the client-facing PDF from structured audit data. Arguments: `$ARGUMENT
    npm run report -- <slug> --lang et --lang ru
    ```
 
-4. **Report back** the output paths and file sizes. Do not open the PDFs.
+4. **Report back** the output paths and file sizes. Do not open the PDFs. If the
+   output warned that no brand config was found, say so plainly: the PDF carries
+   the placeholder "Your Company" brand and must not go to a client until
+   `brand/brand.json` is filled in.
 
 ## Verifying layout after template changes
 
-Only needed when `templates/report.css` or `src/render.js` changed:
+Only needed when `templates/report.css` or `src/render.ts` changed:
 
 ```bash
 npm run report -- <slug> --lang en --html          # writes intermediate HTML to out/

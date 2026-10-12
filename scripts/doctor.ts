@@ -11,21 +11,42 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadBrand, BRAND_DIR, EXAMPLE_DIR } from "../src/brand.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 const PKG = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
 
 export const PLUGIN_ID = "claude-seo@agricidaniel-claude-seo";
-export const TESTED_VERSION = PKG.config?.claudeSeoVersion;
+export const TESTED_VERSION: string | undefined = PKG.config?.claudeSeoVersion;
+
+/** Node runs this repo's .ts files directly; type stripping is on by default from 22.18. */
+const MIN_NODE = "22.18.0";
+
+export interface Check {
+  name: string;
+  required: boolean;
+  ok: boolean;
+  warn?: boolean;
+  detail: string;
+  fix?: string;
+}
+
+type CheckResult = Omit<Check, "name" | "required">;
+
+export interface DoctorResult {
+  ok: boolean;
+  testedVersion: string | undefined;
+  checks: Check[];
+}
 
 const INSTALL_PLUGIN = [
   "claude plugin marketplace add AgriciDaniel/claude-seo --scope project",
   `claude plugin install ${PLUGIN_ID} --scope project`,
 ];
 
-function run(cmd, args) {
+function run(cmd: string, args: string[]): { ok: boolean; missing?: boolean; out: string } {
   try {
     const out = execFileSync(cmd, args, {
       cwd: ROOT,
@@ -34,7 +55,8 @@ function run(cmd, args) {
       timeout: 60_000,
     });
     return { ok: true, out: out.trim() };
-  } catch (err) {
+  } catch (e) {
+    const err = e as NodeJS.ErrnoException & { stdout?: string; stderr?: string };
     if (err.code === "ENOENT") return { ok: false, missing: true, out: "" };
     // claude-seo's launcher reports "setup required" through a non-zero exit;
     // its stdout is still the answer, so keep it.
@@ -43,7 +65,7 @@ function run(cmd, args) {
 }
 
 /** Compare dotted versions numerically: -1, 0 or 1. */
-function cmpVersion(a, b) {
+function cmpVersion(a: string, b: string): number {
   const pa = String(a).split(".").map(Number);
   const pb = String(b).split(".").map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -59,14 +81,14 @@ function cmpVersion(a, b) {
  * would look in its own fallback dir instead and wrongly report "setup required"
  * — so point it at the data dir when one exists.
  */
-function pluginDataDir() {
+function pluginDataDir(): string | null {
   const base = join(homedir(), ".claude", "plugins", "data");
   if (!existsSync(base)) return null;
   const hit = readdirSync(base).find((d) => /^claude-seo[-@]agricidaniel/.test(d));
   return hit ? join(base, hit) : null;
 }
 
-function checkRuntime(installPath) {
+function checkRuntime(installPath: string): CheckResult {
   const launcher = join(installPath, "scripts", "claude-seo");
   if (!existsSync(launcher)) {
     return { ok: false, detail: "launcher missing from the plugin install", fix: "Reinstall: " + INSTALL_PLUGIN[1] };
@@ -80,7 +102,8 @@ function checkRuntime(installPath) {
   try {
     out = execFileSync(launcher, ["doctor"], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 });
     ok = true;
-  } catch (err) {
+  } catch (e) {
+    const err = e as { stdout?: string; stderr?: string };
     out = `${err.stdout ?? ""}${err.stderr ?? ""}`;
   }
   const ready = ok && !/setup required|not ready/i.test(out);
@@ -120,25 +143,52 @@ function checkRuntime(installPath) {
   };
 }
 
-export function doctor() {
-  const checks = [];
-  const add = (name, required, res) => checks.push({ name, required, ...res });
+function checkBrand(): CheckResult {
+  try {
+    const brand = loadBrand();
+    if (brand.isExample) {
+      return {
+        ok: false,
+        detail: "no brand/brand.json — reports would go out under the example brand",
+        fix: "Run `npm run setup`, then edit brand/brand.json and add your logo",
+      };
+    }
+    const example = JSON.parse(readFileSync(join(EXAMPLE_DIR, "brand.json"), "utf8"));
+    if (brand.name === example.name) {
+      return { ok: true, warn: true, detail: `still the example values ("${brand.name}")`, fix: `Edit ${join(BRAND_DIR, "brand.json")}` };
+    }
+    return {
+      ok: true,
+      warn: !brand.logo,
+      detail: brand.logo ? brand.name : `${brand.name} (no logo — the name is printed as a wordmark)`,
+    };
+  } catch (err) {
+    return { ok: false, detail: (err as Error).message, fix: `Fix ${join(BRAND_DIR, "brand.json")}` };
+  }
+}
 
-  const major = Number(process.versions.node.split(".")[0]);
-  add("Node.js 20+", true, major >= 20
-    ? { ok: true, detail: process.versions.node }
-    : { ok: false, detail: process.versions.node, fix: "Install Node.js 20 or newer: https://nodejs.org" });
+export function doctor(): DoctorResult {
+  const checks: Check[] = [];
+  const add = (name: string, required: boolean, res: CheckResult) => checks.push({ name, required, ...res });
+
+  const node = process.versions.node;
+  add(`Node.js ${MIN_NODE}+`, true, cmpVersion(node, MIN_NODE) >= 0
+    ? { ok: true, detail: node }
+    : { ok: false, detail: node, fix: `Install Node.js ${MIN_NODE} or newer: https://nodejs.org` });
+
+  // Not required: the audit itself does not need it, only the PDF does.
+  add("Brand", false, checkBrand());
 
   const claude = run("claude", ["--version"]);
   add("Claude Code", true, claude.ok
     ? { ok: true, detail: claude.out.split("\n")[0] }
     : { ok: false, detail: "`claude` not on PATH", fix: "Install Claude Code: https://claude.com/claude-code" });
 
-  let plugin = null;
+  let plugin: { id: string; enabled: boolean; version: string; installPath: string } | null = null;
   if (claude.ok) {
     const list = run("claude", ["plugin", "list", "--json"]);
     try {
-      plugin = JSON.parse(list.out).find((p) => p.id === PLUGIN_ID) ?? null;
+      plugin = JSON.parse(list.out).find((p: { id: string }) => p.id === PLUGIN_ID) ?? null;
     } catch {
       plugin = null;
     }
@@ -156,7 +206,7 @@ export function doctor() {
     const drift = TESTED_VERSION && plugin.version !== TESTED_VERSION;
     add("claude-seo plugin", true, {
       ok: true,
-      warn: drift,
+      warn: Boolean(drift),
       detail: drift
         ? `${plugin.version} — reports are tested against ${TESTED_VERSION}; check a reference audit before sending this one to a client`
         : plugin.version,
@@ -178,12 +228,12 @@ export function doctor() {
   return { ok: failed.length === 0, testedVersion: TESTED_VERSION, checks };
 }
 
-function print(result) {
-  const mark = (c) => (c.ok ? (c.warn ? "!" : "✓") : c.required ? "✗" : "–");
-  console.log("\nNordkite SEO Reports — environment check\n");
+function print(result: DoctorResult) {
+  const mark = (c: Check) => (c.ok ? (c.warn ? "!" : "✓") : c.required ? "✗" : "–");
+  console.log("\nSEO Audit Studio — environment check\n");
   for (const c of result.checks) {
     console.log(`  ${mark(c)} ${c.name}: ${c.detail}`);
-    if (!c.ok && c.fix) console.log(`      → ${c.fix}`);
+    if ((!c.ok || c.warn) && c.fix) console.log(`      → ${c.fix}`);
   }
   console.log(
     result.ok

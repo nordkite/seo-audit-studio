@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { Health, Provider, Scope, TranslateSettings } from "@/lib/types";
+import type { ClientScope, Health, Provider, TranslateSettings } from "@/lib/types";
 
 const MODELS = [
   { value: "", label: "Default" },
@@ -143,7 +143,7 @@ export function SettingsDialog({
               <Label className="text-xs text-muted-foreground">Retranslate</Label>
               <Select
                 value={settings.scope}
-                onValueChange={(v) => v && onChange({ scope: v as Scope })}
+                onValueChange={(v) => v && onChange({ scope: v as ClientScope })}
                 items={SCOPES}
               >
                 <SelectTrigger className="h-8 w-full text-sm">

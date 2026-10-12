@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process";
-import { ROOT } from "../store.js";
-import { systemPrompt, userPrompt } from "./prompt.js";
+import { ROOT, httpError } from "../store.ts";
+import {
+  systemPrompt,
+  userPrompt,
+  type PendingField,
+  type ProviderReply,
+  type TranslateOptions,
+} from "./prompt.ts";
 
 /**
  * Translate through the `claude` CLI, on the user's Claude Code login.
@@ -24,7 +30,7 @@ No prose, no explanation, no markdown code fence.`;
 export const CLAUDE_BIN = process.env.CLAUDE_BIN ?? "claude";
 
 /** Strip a ```json fence if the model added one anyway. */
-function parseLoose(text) {
+function parseLoose(text: unknown): Record<string, string> {
   const cleaned = String(text)
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
@@ -32,11 +38,14 @@ function parseLoose(text) {
   return JSON.parse(cleaned);
 }
 
-export function available() {
+export function available(): boolean {
   return true; // Presence of the binary is only knowable by running it.
 }
 
-export function translate(fields, { from, to, model, signal }) {
+export function translate(
+  fields: PendingField[],
+  { from, to, model, signal }: TranslateOptions
+): Promise<ProviderReply> {
   return new Promise((resolve, reject) => {
     const args = [
       "-p",
@@ -62,15 +71,13 @@ export function translate(fields, { from, to, model, signal }) {
     child.stdout.on("data", (c) => (stdout += c));
     child.stderr.on("data", (c) => (stderr += c));
 
-    child.on("error", (err) => {
+    child.on("error", (err: NodeJS.ErrnoException) => {
       reject(
         err.code === "ENOENT"
-          ? Object.assign(
-              new Error(
-                `Could not find the "claude" CLI on PATH. Install Claude Code, or ` +
-                  `switch to the Claude API provider in Settings.`
-              ),
-              { status: 503 }
+          ? httpError(
+              503,
+              `Could not find the "claude" CLI on PATH. Install Claude Code, or ` +
+                `switch to the Claude API provider in Settings.`
             )
           : err
       );
@@ -79,31 +86,24 @@ export function translate(fields, { from, to, model, signal }) {
     child.on("close", (code) => {
       if (code !== 0) {
         return reject(
-          Object.assign(
-            new Error(`claude exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`),
-            { status: 502 }
-          )
+          httpError(502, `claude exited with code ${code}${stderr ? `: ${stderr.trim()}` : ""}`)
         );
       }
       try {
         const envelope = JSON.parse(stdout);
         if (envelope.is_error) {
-          throw Object.assign(new Error(String(envelope.result ?? "claude reported an error")), {
-            status: 502,
-          });
+          throw httpError(502, String(envelope.result ?? "claude reported an error"));
         }
         resolve({
           translations: parseLoose(envelope.result),
           usage: { costUsd: envelope.total_cost_usd },
         });
       } catch (err) {
+        const e = err as Error & { status?: number };
         reject(
-          err.status
-            ? err
-            : Object.assign(
-                new Error(`Could not read the translation back from claude: ${err.message}`),
-                { status: 502 }
-              )
+          e.status
+            ? e
+            : httpError(502, `Could not read the translation back from claude: ${e.message}`)
         );
       }
     });

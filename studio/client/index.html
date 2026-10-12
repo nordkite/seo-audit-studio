@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nordkite Report Studio</title>
+    <title>SEO Audit Studio</title>
     <script>
       // Applied before first paint so the app never flashes the wrong theme.
       // ThemeProvider owns it from mount on; this only has to agree with it.
       (() => {
-        const stored = localStorage.getItem("nordkite-studio-theme") || "system";
+        const stored = localStorage.getItem("seo-audit-studio-theme") || "system";
         const dark =
           stored === "dark" ||
           (stored === "system" && matchMedia("(prefers-color-scheme: dark)").matches);

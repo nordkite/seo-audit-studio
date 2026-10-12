@@ -1,22 +1,22 @@
 {
-  "name": "nordkite-seo-reports",
+  "name": "seo-audit-studio",
   "version": "1.0.0",
   "private": true,
-  "description": "Branded, multilingual PDF SEO audit reports for Nordkite clients",
+  "description": "White-label, multilingual PDF SEO audit reports for agencies and consultants",
   "type": "module",
   "bin": {
-    "seo-report": "./src/generate.js"
+    "seo-report": "./src/generate.ts"
   },
   "scripts": {
-    "report": "node src/generate.js",
-    "report:all": "node src/generate.js --all-langs",
-    "studio": "npm run studio:build --silent && node studio/server.js",
-    "studio:dev": "node studio/dev.js",
+    "report": "node src/generate.ts",
+    "report:all": "node src/generate.ts --all-langs",
+    "studio": "npm run studio:build --silent && node studio/server.ts",
+    "studio:dev": "node studio/dev.ts",
     "studio:build": "vite build --config studio/client/vite.config.ts",
-    "studio:check": "tsc -p studio/client/tsconfig.json --noEmit",
-    "doctor": "node scripts/doctor.js",
-    "check-social": "node scripts/check-social.js",
-    "setup": "node scripts/setup.js"
+    "typecheck": "tsc -p tsconfig.json && tsc -p studio/client/tsconfig.json",
+    "doctor": "node scripts/doctor.ts",
+    "check-social": "node scripts/check-social.ts",
+    "setup": "node scripts/setup.ts"
   },
   "config": {
     "claudeSeoVersion": "2.4.2"
@@ -26,7 +26,7 @@
     "puppeteer": "^24.10.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.18"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -35,6 +35,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",

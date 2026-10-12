@@ -1,0 +1,11 @@
+{
+  "name": "Your Company",
+  "website": "https://example.com",
+  "email": "hello@example.com",
+  "phone": "",
+  "logo": "logo.svg",
+  "logoOnDark": "logo-on-dark.svg",
+  "colors": {
+    "primary": "#1f3a5f"
+  }
+}

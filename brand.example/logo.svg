@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="120" viewBox="0 0 600 120">
+  <rect x="0" y="10" width="100" height="100" rx="22" fill="#1f3a5f"/>
+  <path d="M28 76 L50 42 L72 76 Z" fill="#ffffff"/>
+  <text x="128" y="80" font-family="Helvetica, Arial, sans-serif" font-size="58" font-weight="700" fill="#1f3a5f">Your Company</text>
+</svg>

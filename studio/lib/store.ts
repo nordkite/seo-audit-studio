@@ -9,37 +9,43 @@ import {
   copyFileSync,
   unlinkSync,
 } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-import { validate } from "../../src/validate.js";
-import { availableLangs } from "../../src/i18n.js";
-import { ensureIds, baseline, computeState, statusFor, summarize } from "./state.js";
+import { join } from "node:path";
+import { validate } from "../../src/validate.ts";
+import { availableLangs } from "../../src/i18n.ts";
+import type { Report } from "../../src/types.ts";
+import { ensureIds, baseline, computeState, statusFor, summarize } from "./state.ts";
+import type { Doc, ReportSummary } from "./types.ts";
 
-export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+export const ROOT = join(import.meta.dirname, "..", "..");
 const REPORTS = join(ROOT, "reports");
 const BACKUPS = join(ROOT, ".studio-backups");
 const KEEP_BACKUPS = 20;
 
+/** An Error the server turns into an HTTP response with this status. */
+export function httpError(status: number, message: string): Error & { status: number } {
+  return Object.assign(new Error(message), { status });
+}
+
 /** Slugs become file paths. Anything outside this shape is rejected outright. */
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
-export function assertSlug(slug) {
-  if (!SLUG_RE.test(String(slug ?? ""))) {
-    throw Object.assign(new Error(`Invalid slug: ${slug}`), { status: 400 });
+export function assertSlug(slug: unknown): string {
+  if (typeof slug !== "string" || !SLUG_RE.test(slug)) {
+    throw httpError(400, `Invalid slug: ${slug}`);
   }
   return slug;
 }
 
-const reportPath = (slug) => join(REPORTS, `${assertSlug(slug)}.json`);
+const reportPath = (slug: string) => join(REPORTS, `${assertSlug(slug)}.json`);
 
-export function listReports() {
+export function listReports(): ReportSummary[] {
   if (!existsSync(REPORTS)) return [];
   return readdirSync(REPORTS)
     .filter((f) => f.endsWith(".json"))
-    .map((f) => {
+    .map((f): ReportSummary => {
       const slug = f.replace(/\.json$/, "");
       try {
-        const report = JSON.parse(readFileSync(join(REPORTS, f), "utf8"));
+        const report: Partial<Report> = JSON.parse(readFileSync(join(REPORTS, f), "utf8"));
         return {
           slug,
           site: report.meta?.site ?? slug,
@@ -50,7 +56,16 @@ export function listReports() {
           langs: availableLangs(report),
         };
       } catch {
-        return { slug, site: slug, clientName: "", broken: true, langs: [] };
+        return {
+          slug,
+          site: slug,
+          clientName: "",
+          score: null,
+          auditedAt: null,
+          findings: 0,
+          langs: [],
+          broken: true,
+        };
       }
     })
     .sort((a, b) => String(b.auditedAt).localeCompare(String(a.auditedAt)));
@@ -63,11 +78,10 @@ export function listReports() {
  * command and a Claude Code session can both rewrite this file while the
  * editor holds it open, and last-write-wins would silently discard their work.
  */
-export function readReport(slug) {
+export function readReport(slug: string): Doc {
   const path = reportPath(slug);
-  if (!existsSync(path)) {
-    throw Object.assign(new Error(`No such report: ${slug}`), { status: 404 });
-  }
+  if (!existsSync(path)) throw httpError(404, `No such report: ${slug}`);
+
   const report = baseline(ensureIds(JSON.parse(readFileSync(path, "utf8"))));
   const status = statusFor(report);
 
@@ -80,7 +94,7 @@ export function readReport(slug) {
   };
 }
 
-function backup(path, slug) {
+function backup(path: string, slug: string): void {
   if (!existsSync(path)) return;
   const dir = join(BACKUPS, slug);
   mkdirSync(dir, { recursive: true });
@@ -97,19 +111,21 @@ function backup(path, slug) {
  * and write through a temp file so a crash mid-write cannot leave a truncated
  * JSON file where an audit used to be.
  */
-export function writeReport(slug, report, { expectedMtime, refreshState = false } = {}) {
+export function writeReport(
+  slug: string,
+  report: Report,
+  { expectedMtime, refreshState = false }: { expectedMtime?: number; refreshState?: boolean } = {}
+): Doc {
   const path = reportPath(slug);
 
   if (expectedMtime != null && existsSync(path)) {
     const actual = statSync(path).mtimeMs;
     // Sub-millisecond drift is filesystem noise, not a real edit.
     if (Math.abs(actual - expectedMtime) > 1) {
-      throw Object.assign(
-        new Error(
-          `${slug}.json changed on disk since you opened it — reload before saving, ` +
-            `or your edits will overwrite whatever changed it.`
-        ),
-        { status: 409 }
+      throw httpError(
+        409,
+        `${slug}.json changed on disk since you opened it — reload before saving, ` +
+          `or your edits will overwrite whatever changed it.`
       );
     }
   }
@@ -133,12 +149,22 @@ export function writeReport(slug, report, { expectedMtime, refreshState = false 
   return readReport(slug);
 }
 
-export function reportExists(slug) {
+export function reportExists(slug: string): boolean {
   return existsSync(reportPath(slug));
 }
 
 /** A minimal report that passes validate() — findings must be non-empty. */
-export function skeleton({ slug, site, clientName, siteUrl = "" }) {
+export function skeleton({
+  slug,
+  site,
+  clientName,
+  siteUrl = "",
+}: {
+  slug: string;
+  site: string;
+  clientName: string;
+  siteUrl?: string;
+}): Report {
   const today = new Date().toISOString().slice(0, 10);
   return {
     meta: {

@@ -1,8 +1,10 @@
 import puppeteer from "puppeteer";
 import { PDFDocument } from "pdf-lib";
-import { renderCover, renderBody, runningTemplates } from "./render.js";
+import { renderCover, renderBody, runningTemplates } from "./render.ts";
+import { loadBrand } from "./brand.ts";
+import type { Lang, Report } from "./types.ts";
 
-const A4 = { format: "A4" };
+const A4 = { format: "A4" } as const;
 
 /**
  * Chrome applies header/footer templates to every page and offers no way to
@@ -15,7 +17,7 @@ const A4 = { format: "A4" };
  * Page numbers therefore count body pages only, which is also the correct
  * print convention: a cover is never folio'd.
  */
-export async function renderPdf(report, lang) {
+export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--font-render-hinting=none"],
@@ -49,7 +51,7 @@ export async function renderPdf(report, lang) {
   }
 }
 
-async function merge(parts, report, lang) {
+async function merge(parts: Uint8Array[], report: Report, lang: Lang): Promise<Buffer> {
   const out = await PDFDocument.create();
 
   for (const part of parts) {
@@ -58,11 +60,14 @@ async function merge(parts, report, lang) {
     pages.forEach((p) => out.addPage(p));
   }
 
+  // White-label all the way down: a client opening Document Properties sees
+  // the brand, not the tool that made the file.
+  const { name } = loadBrand();
   const { site, clientName, auditedAt } = report.meta;
   out.setTitle(`SEO Audit — ${site} (${lang.toUpperCase()})`);
-  out.setAuthor("Nordkite");
-  out.setCreator("Nordkite SEO Reports");
-  out.setProducer("Nordkite");
+  out.setAuthor(name);
+  out.setCreator(name);
+  out.setProducer(name);
   out.setSubject(`SEO audit report for ${clientName}`);
   out.setKeywords(["SEO", "audit", site, clientName]);
   out.setCreationDate(new Date(`${auditedAt}T00:00:00Z`));

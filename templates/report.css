@@ -1,15 +1,17 @@
 /* ==========================================================================
-   Nordkite SEO report — print stylesheet
+   SEO audit report — print stylesheet
    Target: A4 via Chrome page.pdf({ printBackground: true })
    All units are physical (mm/pt) or absolute (px @ 96dpi). No viewport units,
    no fluid scaling — this is paper, not a screen.
    ========================================================================== */
 
 :root {
-  --navy: #293451;
-  --navy-700: #1c2439;
-  --navy-100: #e8ebf1;
-  --navy-050: #f4f6f9;
+  /* --brand is overridden per render from brand/brand.json (see shell() in
+     src/render.ts). The tints derive from it, so a brand sets one colour. */
+  --brand: #293451;
+  --brand-700: color-mix(in srgb, var(--brand) 69%, black);
+  --brand-100: color-mix(in srgb, var(--brand) 10%, white);
+  --brand-050: color-mix(in srgb, var(--brand) 5%, white);
 
   --ink: #16181d;
   --ink-muted: #5b6270;
@@ -75,7 +77,7 @@ body {
   height: 297mm;
   width: 210mm;
   padding: 24mm 18mm 18mm;
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -83,7 +85,7 @@ body {
 }
 
 .cover::after {
-  /* Subtle kite-angle geometry echoing the logo mark. */
+  /* Subtle background geometry. */
   content: "";
   position: absolute;
   right: -60mm;
@@ -94,15 +96,43 @@ body {
   background: rgba(255, 255, 255, 0.035);
 }
 
+/* Logos come in any aspect ratio. A wide wordmark fills the width; a square
+   icon is capped by max-height instead of growing to 52mm tall. */
 .cover__logo {
   width: 52mm;
-  height: auto;
 }
 
-.cover__logo svg {
+.cover__logo img,
+.endslug__logo img {
+  display: block;
   width: 100%;
   height: auto;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.cover__logo img {
+  max-height: 18mm;
+}
+
+/* The cover is a dark brand-colour surface. A logo with no dark variant is
+   turned solid white so it stays visible; brand.json's logoOnDark avoids it. */
+.logo--knockout {
+  filter: brightness(0) invert(1);
+}
+
+/* Stands in for the logo when brand.json names none. */
+.wordmark {
   display: block;
+  font-size: 17pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.endslug .wordmark {
+  font-size: 12pt;
+  color: var(--brand);
 }
 
 .cover__kicker {
@@ -228,7 +258,7 @@ h2 {
   font-size: 16pt;
   font-weight: 700;
   letter-spacing: -0.012em;
-  color: var(--navy);
+  color: var(--brand);
   margin: 0 0 1.5mm;
   break-after: avoid;
 }
@@ -253,10 +283,10 @@ code,
 .mono {
   font-family: var(--font-mono);
   font-size: 0.9em;
-  background: var(--navy-050);
+  background: var(--brand-050);
   padding: 0.3mm 1.2mm;
   border-radius: 0.8mm;
-  color: var(--navy-700);
+  color: var(--brand-700);
 }
 
 /* --- Section scaffolding ------------------------------------------------- */
@@ -276,7 +306,7 @@ code,
   justify-content: space-between;
   gap: 6mm;
   padding-bottom: 2.5mm;
-  border-bottom: 2px solid var(--navy);
+  border-bottom: 2px solid var(--brand);
   margin-bottom: 4mm;
   break-after: avoid;
 }
@@ -305,8 +335,8 @@ code,
 .method {
   font-size: 8.8pt;
   color: var(--ink-muted);
-  background: var(--navy-050);
-  border-left: 2px solid var(--navy-100);
+  background: var(--brand-050);
+  border-left: 2px solid var(--brand-100);
   padding: 4mm 5mm;
   border-radius: 0 1.5mm 1.5mm 0;
 }
@@ -324,7 +354,7 @@ code,
   padding: 4mm;
   border: 1px solid var(--rule);
   border-radius: 2mm;
-  border-top: 3px solid var(--tone, var(--navy));
+  border-top: 3px solid var(--tone, var(--brand));
   break-inside: avoid;
 }
 
@@ -332,7 +362,7 @@ code,
   font-size: 22pt;
   font-weight: 700;
   line-height: 1;
-  color: var(--tone, var(--navy));
+  color: var(--tone, var(--brand));
 }
 
 .glance__label {
@@ -488,7 +518,7 @@ code,
 .tag--evidence {
   font-family: var(--font-mono);
   font-size: 7.8pt;
-  color: var(--navy-700);
+  color: var(--brand-700);
   word-break: break-all;
 }
 
@@ -565,7 +595,7 @@ code,
   width: 7mm;
   height: 7mm;
   border-radius: 50%;
-  background: var(--navy);
+  background: var(--brand);
   color: #fff;
   font-size: 9pt;
   font-weight: 700;
@@ -597,7 +627,7 @@ code,
 .endslug {
   margin-top: 12mm;
   padding-top: 5mm;
-  border-top: 2px solid var(--navy);
+  border-top: 2px solid var(--brand);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -610,10 +640,8 @@ code,
   flex: none;
 }
 
-.endslug__logo svg {
-  width: 100%;
-  height: auto;
-  display: block;
+.endslug__logo img {
+  max-height: 12mm;
 }
 
 .endslug__text {
@@ -624,7 +652,7 @@ code,
 }
 
 .endslug__text a {
-  color: var(--navy);
+  color: var(--brand);
   font-weight: 700;
   text-decoration: none;
 }

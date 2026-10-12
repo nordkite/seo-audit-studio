@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
-import { SUPPORTED_LANGS } from "../../src/i18n.js";
+import { SUPPORTED_LANGS } from "../../src/i18n.ts";
+import type { I18n, Lang, Report } from "../../src/types.ts";
+import type { FieldStatus, FieldStatusMap, Totals } from "./types.ts";
 
 /**
  * Translation staleness.
@@ -12,18 +14,25 @@ import { SUPPORTED_LANGS } from "../../src/i18n.js";
  *
  * So we record, per field, a hash of the source text as it stood at the last
  * successful translation. A mismatch on load means the translation is stale.
- * The hashes live under `_translationState`, which both render.js and
- * validate.js ignore — they only read keys they know about.
+ * The hashes live under `_translationState`, which both render.ts and
+ * validate.ts ignore — they only read keys they know about.
  */
 
-const COLLECTIONS = ["findings", "roadmap", "notCovered", "sections"];
+const COLLECTIONS = ["findings", "roadmap", "notCovered", "sections"] as const;
+type Collection = (typeof COLLECTIONS)[number];
 
-const isI18n = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+/** A translatable node and its stable path, e.g. `findings.missing-h1.title`. */
+export interface Field {
+  path: string;
+  node: I18n;
+}
 
-export const hash = (text) =>
+const isI18n = (v: unknown): v is I18n => v !== null && typeof v === "object" && !Array.isArray(v);
+
+export const hash = (text: unknown): string =>
   createHash("sha256").update(String(text ?? "")).digest("hex").slice(0, 12);
 
-export function slugify(s) {
+export function slugify(s: unknown): string {
   return (
     String(s ?? "")
       .toLowerCase()
@@ -35,7 +44,10 @@ export function slugify(s) {
   );
 }
 
-function* itemFields(coll, item, id) {
+/** Loosely typed on purpose: this walks parsed JSON before validation. */
+type Item = Record<string, any>;
+
+function* itemFields(coll: Collection, item: Item, id: string): Generator<Field> {
   const base = `${coll}.${id}`;
   if (isI18n(item.title)) yield { path: `${base}.title`, node: item.title };
   if (isI18n(item.body)) yield { path: `${base}.body`, node: item.body };
@@ -54,12 +66,12 @@ function* itemFields(coll, item, id) {
 }
 
 /** Every translatable { en, et, ru } node in the report, with a stable path. */
-export function* translatableFields(report) {
+export function* translatableFields(report: Report): Generator<Field> {
   if (isI18n(report.summary)) yield { path: "summary", node: report.summary };
   if (isI18n(report.method)) yield { path: "method", node: report.method };
 
   for (const coll of COLLECTIONS) {
-    const items = report[coll];
+    const items: Item[] | undefined = report[coll];
     if (!Array.isArray(items)) continue;
     for (const [i, item] of items.entries()) {
       if (!item || typeof item !== "object") continue;
@@ -75,15 +87,15 @@ export function* translatableFields(report) {
  * not, and staleness has to key off something that survives reordering — array
  * position does not. Mutates in place; persisted on the next save.
  */
-export function ensureIds(report) {
+export function ensureIds(report: Report): Report {
   for (const coll of COLLECTIONS) {
-    const items = report[coll];
+    const items: Item[] | undefined = report[coll];
     if (!Array.isArray(items)) continue;
 
-    const seen = new Set();
+    const seen = new Set<string>();
     for (const [i, item] of items.entries()) {
       if (!item || typeof item !== "object") continue;
-      let id = item.id || slugify(item.title?.en ?? item.title ?? `${coll}-${i + 1}`);
+      let id: string = item.id || slugify(item.title?.en ?? item.title ?? `${coll}-${i + 1}`);
       if (seen.has(id)) {
         let n = 2;
         while (seen.has(`${id}-${n}`)) n++;
@@ -104,7 +116,7 @@ export function ensureIds(report) {
  * the drift they were about to introduce. Hashing at load pins the baseline to
  * the text as it was when the file was opened.
  */
-export function baseline(report) {
+export function baseline(report: Report): Report {
   // An empty map counts as "no tracking yet", not "nothing is current" — it
   // carries no information, so adopting costs nothing. Without this an empty
   // map would be a permanent trap: every field stuck stale until a full
@@ -117,9 +129,9 @@ export function baseline(report) {
 }
 
 /** Hashes of every source string as it stands right now. */
-export function computeState(report) {
-  const source = report.meta?.sourceLang ?? "en";
-  const state = {};
+export function computeState(report: Report): Record<string, string> {
+  const source: Lang = report.meta?.sourceLang ?? "en";
+  const state: Record<string, string> = {};
   for (const { path, node } of translatableFields(report)) {
     const text = node[source];
     if (typeof text === "string" && text.length) state[path] = hash(text);
@@ -139,24 +151,26 @@ export function computeState(report) {
  * before tracking existed are baselined on load (see `baseline`) so they do not
  * open with every field flagged — after that, a missing hash is a real signal.
  */
-export function statusFor(report) {
-  const source = report.meta?.sourceLang ?? "en";
+export function statusFor(report: Report): FieldStatusMap {
+  const source: Lang = report.meta?.sourceLang ?? "en";
   const stored = report._translationState ?? {};
-  const out = {};
+  const out: FieldStatusMap = {};
 
   for (const { path, node } of translatableFields(report)) {
     // An empty source string has nothing to translate. Reporting it as
     // "missing" in every target language would park a permanent count on the
     // language tabs that no amount of translating could clear.
-    if (typeof node[source] !== "string" || !node[source].trim()) continue;
+    const text = node[source];
+    if (typeof text !== "string" || !text.trim()) continue;
 
-    const live = hash(node[source]);
-    const langs = {};
+    const live = hash(text);
+    const langs: Partial<Record<Lang, FieldStatus>> = {};
 
     for (const lang of SUPPORTED_LANGS) {
+      const translated = node[lang];
       if (lang === source) {
         langs[lang] = "source";
-      } else if (typeof node[lang] !== "string" || !node[lang].length) {
+      } else if (typeof translated !== "string" || !translated.length) {
         langs[lang] = "missing";
       } else if (stored[path] && live && stored[path] === live) {
         langs[lang] = "current";
@@ -170,13 +184,13 @@ export function statusFor(report) {
 }
 
 /** Rolled-up counts per language, for the header badges. */
-export function summarize(status) {
-  const totals = {};
+export function summarize(status: FieldStatusMap): Partial<Record<Lang, Totals>> {
+  const totals: Partial<Record<Lang, Totals>> = {};
   for (const langs of Object.values(status)) {
-    for (const [lang, s] of Object.entries(langs)) {
+    for (const [lang, s] of Object.entries(langs) as [Lang, FieldStatus][]) {
       if (s === "source") continue;
-      totals[lang] ??= { current: 0, stale: 0, missing: 0 };
-      totals[lang][s]++;
+      const t = (totals[lang] ??= { current: 0, stale: 0, missing: 0 });
+      t[s]++;
     }
   }
   return totals;

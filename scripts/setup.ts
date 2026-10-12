@@ -4,31 +4,39 @@
  *
  *   npm run setup
  *
- * Installs npm dependencies and the claude-seo plugin. It does NOT run
- * claude-seo's own `/seo setup` — that has to run inside Claude Code, which
- * gives the plugin its data directory. The doctor says so if it is still due.
+ * Installs npm dependencies and the claude-seo plugin, and creates brand/ from
+ * brand.example/ if it is missing. It does NOT run claude-seo's own
+ * `/seo setup` — that has to run inside Claude Code, which gives the plugin its
+ * data directory. The doctor says so if it is still due.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { doctor, PLUGIN_ID } from "./doctor.js";
+import { cpSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { doctor, PLUGIN_ID } from "./doctor.ts";
+import { BRAND_DIR, EXAMPLE_DIR } from "../src/brand.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(import.meta.dirname, "..");
 
-function step(label, cmd, args) {
+function step(label: string, cmd: string, args: string[]): boolean {
   console.log(`\n→ ${label}\n  $ ${cmd} ${args.join(" ")}`);
   try {
     execFileSync(cmd, args, { cwd: ROOT, stdio: "inherit" });
     return true;
   } catch (err) {
-    console.error(`  ✗ ${err.code === "ENOENT" ? `\`${cmd}\` not found` : "failed"}`);
+    console.error(`  ✗ ${(err as NodeJS.ErrnoException).code === "ENOENT" ? `\`${cmd}\` not found` : "failed"}`);
     return false;
   }
 }
 
 if (!existsSync(join(ROOT, "node_modules", "puppeteer"))) {
   step("Installing npm dependencies", "npm", ["install"]);
+}
+
+// Never overwrite an existing brand: it is the user's own, and not in git.
+if (!existsSync(join(BRAND_DIR, "brand.json"))) {
+  console.log(`\n→ Creating your brand folder\n  ${EXAMPLE_DIR} → ${BRAND_DIR}`);
+  cpSync(EXAMPLE_DIR, BRAND_DIR, { recursive: true, errorOnExist: false, force: false });
+  console.log("  Edit brand/brand.json and replace the logo files with your own.");
 }
 
 const before = doctor();
@@ -47,7 +55,7 @@ if (claudeOk && plugin && !plugin.ok) {
 }
 
 try {
-  execFileSync(process.execPath, [join(ROOT, "scripts", "doctor.js")], { stdio: "inherit" });
+  execFileSync(process.execPath, [join(ROOT, "scripts", "doctor.ts")], { stdio: "inherit" });
 } catch {
   process.exit(1); // the doctor has already printed what is missing
 }
