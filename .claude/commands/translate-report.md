@@ -18,7 +18,7 @@ changed or the user explicitly asks.
    `i18n/translation-rules.md`.
 
 2. Identify every translatable field missing the target language. Translatable
-   fields are `summary`, `method`, and — on each entry of `findings`, `roadmap`,
+   fields are `summary`, `method`, `closingNote` (when present), and — on each entry of `findings`, `roadmap`,
    `notCovered` and `sections` — `title`, `body`, and `evidence` **when
    `evidence` is an object**. A string `evidence` is a verbatim technical
    reference: leave it alone.

@@ -70,23 +70,25 @@ export function FindingCard({
 
         <button
           onClick={() => setOpen((v) => !v)}
-          className="min-w-0 flex-1 rounded px-1 py-0.5 text-left hover:bg-accent/50"
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-start gap-1 rounded px-1 py-0.5 text-left hover:bg-accent/50"
         >
-          <span className="line-clamp-2 text-sm leading-snug">
-            {finding.title?.[lang] || finding.title?.[sourceLang] || (
-              <em className="text-muted-foreground">Untitled finding</em>
-            )}
+          <span className="min-w-0 flex-1">
+            <span className="line-clamp-2 text-sm leading-snug">
+              {finding.title?.[lang] || finding.title?.[sourceLang] || (
+                <em className="text-muted-foreground">Untitled finding</em>
+              )}
+            </span>
+            <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
+              {finding.id}
+            </span>
           </span>
-          <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground">
-            {finding.id}
-          </span>
+          {open ? (
+            <ChevronDown className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+          )}
         </button>
-
-        {open ? (
-          <ChevronDown className="mt-1.5 size-3.5 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="mt-1.5 size-3.5 shrink-0 text-muted-foreground" />
-        )}
       </div>
 
       {open && (
@@ -179,15 +181,16 @@ export function FindingCard({
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-1">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">ID</Label>
-              <Input
-                className="h-7 w-52 font-mono text-xs"
-                value={finding.id}
-                onChange={(e) => set("id", e.target.value)}
-              />
-            </div>
+          <div className="space-y-1.5 pt-1">
+            <Label className="text-xs text-muted-foreground">ID</Label>
+            <Input
+              className="h-7 w-full font-mono text-xs"
+              value={finding.id}
+              onChange={(e) => set("id", e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end border-t pt-2">
             <Button variant="ghost" size="sm" onClick={onDelete} className="text-destructive">
               <Trash2 className="size-3.5" /> Delete
             </Button>

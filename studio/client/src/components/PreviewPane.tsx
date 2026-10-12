@@ -82,18 +82,21 @@ export function PreviewPane({ report, lang, langPicker }: Props) {
     };
   }, [report, lang, part, theme]);
 
-  // Reset to the one-page fallback whenever the document changes, so a
-  // shorter new report doesn't inherit the previous one's scaled height
-  // until the iframe reports its own.
+  // A different page is a different document: start it at the top. Edits to
+  // the same page keep the reader where they were.
   useEffect(() => {
-    setContentHeight(PAGE_HEIGHT_PX);
-  }, [html]);
+    boxRef.current?.scrollTo({ top: 0 });
+  }, [part]);
 
+  // The height of the content itself, not of the frame. scrollHeight never
+  // reports less than the iframe's current height, so a shorter document would
+  // inherit the old one's height. Resetting the frame to one page before each
+  // reload avoided that, but collapsed the scroll box and threw the reader
+  // back to the top on every keystroke. The root element's box is
+  // content-sized whatever the frame is.
   const measureContent = () => {
-    const doc = iframeRef.current?.contentDocument;
-    if (doc?.documentElement) {
-      setContentHeight(doc.documentElement.scrollHeight);
-    }
+    const root = iframeRef.current?.contentDocument?.documentElement;
+    if (root) setContentHeight(Math.ceil(root.getBoundingClientRect().height));
   };
 
   // The report is laid out in millimetres. Render it at true page width and
@@ -128,14 +131,14 @@ export function PreviewPane({ report, lang, langPicker }: Props) {
           </span>
           <Button
             variant="ghost"
-            size="icon-sm"
+            size="sm"
             title={`${part === "cover" ? "Cover" : "Body"} colours and logo`}
             aria-pressed={themeOpen}
             disabled={!brand}
             onClick={() => setThemeOpen((o) => !o)}
-            className={cn(themeOpen && "bg-muted text-foreground")}
+            className={cn("h-7 text-xs text-foreground", themeOpen && "bg-muted")}
           >
-            <Palette />
+            <Palette /> Customize
           </Button>
         </div>
       </div>

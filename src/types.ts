@@ -88,6 +88,10 @@ export interface Report {
   meta: Meta;
   summary: I18n;
   method: I18n;
+  /** Replaces the default confidentiality line at the end of the report. */
+  closingNote?: I18n;
+  /** Drops that line entirely, custom or default. */
+  hideClosingNote?: boolean;
   findings: Finding[];
   roadmap?: ListItem[];
   notCovered?: ListItem[];

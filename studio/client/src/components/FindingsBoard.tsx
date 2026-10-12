@@ -145,7 +145,7 @@ export function FindingsBoard({
                 variant="ghost"
                 size="sm"
                 disabled={disabled}
-                className="mt-auto justify-start text-xs text-muted-foreground"
+                className="justify-start text-xs text-muted-foreground"
                 onClick={() =>
                   onChange([...findings, blankFinding(findings.map((f) => f.id), sev)])
                 }

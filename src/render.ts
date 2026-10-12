@@ -405,6 +405,15 @@ function severityCounts(report: Report): Record<Severity, number> {
 }
 
 /**
+ * The line under the end logo. A custom note that has no translation in `lang`
+ * falls back to the chrome default, not to the English note: a Russian PDF
+ * should not end on an English sentence.
+ */
+function closingNote(report: Report, lang: Lang, fallback: string): string {
+  return report.closingNote?.[lang]?.trim() || fallback;
+}
+
+/**
  * Cover page — rendered as its own zero-margin document so it bleeds.
  *
  * `brand` defaults to brand.json; the Studio passes an unsaved edit of it to
@@ -597,9 +606,13 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
   <div class="endslug">
     <div class="endslug__logo">${logo(brand, brand.body.logo)}</div>
     <div class="endslug__text">
-      ${brandLink(brand)}<br>
-      ${contact ? `${contact}<br>` : ""}
-      ${esc(s.doc.confidential)}
+      ${[
+        brandLink(brand),
+        contact,
+        report.hideClosingNote ? "" : esc(closingNote(report, lang, s.doc.confidential)),
+      ]
+        .filter(Boolean)
+        .join("<br>")}
     </div>
   </div>
 

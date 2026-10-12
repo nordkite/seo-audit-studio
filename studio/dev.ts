@@ -29,7 +29,9 @@ function shutdown() {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-start("server", process.execPath, [join(ROOT, "studio", "server.ts")]);
+// --watch restarts the API on any change to it or to what it imports
+// (src/render.ts and friends), so the preview never runs stale renderer code.
+start("server", process.execPath, ["--watch", join(ROOT, "studio", "server.ts")]);
 start("vite", "npx", ["vite", "--config", join(ROOT, "studio", "client", "vite.config.ts")]);
 
 console.log("\n  Studio dev  →  http://127.0.0.1:5173  (API on :4321)\n");

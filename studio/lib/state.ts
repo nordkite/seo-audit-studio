@@ -69,6 +69,7 @@ function* itemFields(coll: Collection, item: Item, id: string): Generator<Field>
 export function* translatableFields(report: Report): Generator<Field> {
   if (isI18n(report.summary)) yield { path: "summary", node: report.summary };
   if (isI18n(report.method)) yield { path: "method", node: report.method };
+  if (isI18n(report.closingNote)) yield { path: "closingNote", node: report.closingNote };
 
   for (const coll of COLLECTIONS) {
     const items: Item[] | undefined = report[coll];

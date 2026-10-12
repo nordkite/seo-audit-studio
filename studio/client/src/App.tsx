@@ -227,6 +227,38 @@ export default function App() {
                   status={statusOf(paths.method())}
                   disabled={translating !== null}
                 />
+                <div className="space-y-1.5">
+                  <I18nField
+                    label="Closing note"
+                    value={report!.closingNote}
+                    onChange={(v) =>
+                      update((d) => void (d.closingNote = v), paths.closingNote())
+                    }
+                    lang={lang}
+                    sourceLang={source}
+                    status={
+                      report!.closingNote && !report!.hideClosingNote
+                        ? statusOf(paths.closingNote())
+                        : undefined
+                    }
+                    placeholder="Empty: “Confidential — prepared for the named client only.”"
+                    disabled={translating !== null || report!.hideClosingNote}
+                  />
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={!report!.hideClosingNote}
+                      disabled={translating !== null}
+                      onChange={(e) =>
+                        update((d) => {
+                          if (e.target.checked) delete d.hideClosingNote;
+                          else d.hideClosingNote = true;
+                        })
+                      }
+                    />
+                    Show closing note at the end of the report
+                  </label>
+                </div>
               </div>
             </Section>
 

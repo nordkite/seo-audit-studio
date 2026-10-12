@@ -122,6 +122,7 @@ export function blankSection(taken: Iterable<string>): Section {
 export const paths = {
   summary: () => "summary",
   method: () => "method",
+  closingNote: () => "closingNote",
   item: (coll: string, id: string, field: string) => `${coll}.${id}.${field}`,
   image: (id: string, field: string) => `sections.${id}.image.${field}`,
 };

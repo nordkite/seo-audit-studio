@@ -46,7 +46,7 @@ export function Topbar({
   return (
     <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2.5">
       <span className="text-sm font-semibold tracking-tight">
-        SEO Audit <span className="text-muted-foreground">Studio</span>
+        SEO Audit Studio
       </span>
 
       <Separator orientation="vertical" className="h-5" />
