@@ -161,6 +161,122 @@ function customSection(sec, lang, sourceLang) {
     </section>`;
 }
 
+/**
+ * Core Web Vitals thresholds (p75), per web.dev. LCP and INP in ms, CLS unitless.
+ */
+const CWV = {
+  lcp: { good: 2500, poor: 4000 },
+  inp: { good: 200, poor: 500 },
+  cls: { good: 0.1, poor: 0.25 },
+};
+
+function cwvRating(metric, value) {
+  const th = CWV[metric];
+  if (value <= th.good) return "good";
+  if (value <= th.poor) return "needsImprovement";
+  return "poor";
+}
+
+const RATING_TONE = { good: "var(--pass)", needsImprovement: "var(--warning)", poor: "var(--critical)" };
+
+function metricCell(value, label, { tone, sub } = {}) {
+  return `
+      <div class="glance__cell"${tone ? ` style="--tone: ${tone}"` : ""}>
+        <div class="glance__n">${esc(value)}</div>
+        <div class="glance__label">${esc(label)}</div>
+        ${sub ? `<div class="glance__sub">${esc(sub)}</div>` : ""}
+      </div>`;
+}
+
+/**
+ * Measured numbers from Search Console. Language-neutral by design: only the
+ * labels come from i18n, and queries are what users typed, so they are never
+ * translated.
+ */
+function searchConsoleSection(gsc, s, locale) {
+  const n = (v, opts) => new Intl.NumberFormat(locale, opts).format(v);
+  const cells = [
+    metricCell(n(gsc.clicks), s.metrics.clicks),
+    metricCell(n(gsc.impressions), s.metrics.impressions),
+    metricCell(n(gsc.ctr, { style: "percent", maximumFractionDigits: 1 }), s.metrics.ctr),
+    metricCell(n(gsc.position, { maximumFractionDigits: 1 }), s.metrics.position),
+  ].join("");
+
+  const rows = (gsc.topQueries ?? [])
+    .slice(0, 10)
+    .map(
+      (q) => `
+        <tr>
+          <td>${esc(q.query)}</td>
+          <td class="num">${n(q.clicks)}</td>
+          <td class="num">${n(q.impressions)}</td>
+          <td class="num">${n(q.position, { maximumFractionDigits: 1 })}</td>
+        </tr>`
+    )
+    .join("");
+
+  const period = `${formatDate(gsc.start, locale)} – ${formatDate(gsc.end, locale)}`;
+
+  return `
+    <section class="section section--metrics">
+      <div class="section__head">
+        <h2>${esc(s.sections.searchConsole)}</h2>
+        <span class="section__count">${esc(period)}</span>
+      </div>
+      <p class="section__hint">${esc(s.metrics.searchConsoleNote)}</p>
+      <div class="glance glance--metrics">${cells}</div>
+      ${
+        rows
+          ? `<table class="metrics__table">
+               <thead><tr>
+                 <th>${esc(s.metrics.query)}</th>
+                 <th class="num">${esc(s.metrics.clicks)}</th>
+                 <th class="num">${esc(s.metrics.impressions)}</th>
+                 <th class="num">${esc(s.metrics.position)}</th>
+               </tr></thead>
+               <tbody>${rows}</tbody>
+             </table>`
+          : ""
+      }
+    </section>`;
+}
+
+/**
+ * Field data (CrUX: real Chrome users, p75) and lab data (one Lighthouse run)
+ * are not interchangeable, and a client reading the PDF cannot tell them apart
+ * — so the source is always printed, never implied.
+ */
+function coreWebVitalsSection(cwv, s, locale) {
+  const n = (v, opts) => new Intl.NumberFormat(locale, opts).format(v);
+  const secs = (ms) => `${n(ms / 1000, { maximumFractionDigits: 1 })} s`;
+  const cell = (metric, shown) =>
+    metricCell(shown, metric.toUpperCase(), {
+      tone: RATING_TONE[cwvRating(metric, cwv[metric])],
+      sub: s.metrics.ratings[cwvRating(metric, cwv[metric])],
+    });
+
+  const cells = [
+    cwv.lcp != null ? cell("lcp", secs(cwv.lcp)) : "",
+    cwv.inp != null ? cell("inp", `${n(Math.round(cwv.inp))} ms`) : "",
+    cwv.cls != null ? cell("cls", n(cwv.cls, { maximumFractionDigits: 2 })) : "",
+    cwv.performance != null ? metricCell(n(cwv.performance), s.metrics.performance) : "",
+  ].join("");
+
+  const source = cwv.source === "field" ? s.metrics.fieldNote : s.metrics.labNote;
+  const device = s.metrics.devices[cwv.strategy] ?? cwv.strategy ?? "";
+
+  return `
+    <section class="section section--metrics">
+      <div class="section__head">
+        <h2>${esc(s.sections.coreWebVitals)}</h2>
+        <span class="section__count">${esc(device)}</span>
+      </div>
+      <p class="section__hint">${esc(source)}</p>
+      <div class="glance glance--metrics">${cells}</div>
+      ${cwv.url ? `<p class="metrics__note">${esc(s.meta.evidence)}: ${esc(cwv.url)}</p>` : ""}
+    </section>`;
+}
+
 function shell(lang, title, body) {
   const css = readFileSync(join(ROOT, "templates", "report.css"), "utf8");
   return `<!doctype html>
@@ -305,6 +421,9 @@ export function renderBody(report, lang) {
     <div class="glance">${glance}</div>
     <div class="method">${esc(t(report.method, lang, sourceLang))}</div>
   </section>
+
+  ${report.metrics?.searchConsole ? searchConsoleSection(report.metrics.searchConsole, s, s.locale) : ""}
+  ${report.metrics?.coreWebVitals ? coreWebVitalsSection(report.metrics.coreWebVitals, s, s.locale) : ""}
 
   ${at("breakdown")}
 

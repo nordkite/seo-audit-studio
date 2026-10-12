@@ -12,9 +12,23 @@ Never write audit findings as prose Markdown in this repo. Prose can't be
 re-rendered into another language without re-auditing the site, which is the exact
 problem this repo exists to solve.
 
+## Where the audit comes from
+
+The audit methodology is the **claude-seo** plugin, declared in
+`.claude/settings.json`. It is not copied into this repo. Do not add SEO skills
+under `.claude/skills/`: they would compete with claude-seo for the same prompts
+and go stale, which is why the earlier copies were removed. This repo owns the
+schema, translation and rendering. claude-seo owns what gets checked.
+
+`/new-audit` runs `npm run doctor -- --json` first and stops if claude-seo or its
+runtime is missing, rather than quietly running a weaker audit.
+`config.claudeSeoVersion` in `package.json` is the release reports were last
+verified against.
+
 ## Commands
 
-- `/new-audit <url>` — audit a site, write `reports/<slug>.json`
+- `npm run setup` / `npm run doctor`: install and check the environment
+- `/new-audit <url>` — audit a site with claude-seo, write `reports/<slug>.json`
 - `/translate-report <slug> all` — fill `et`/`ru`, cached into the same file
 - `/seo-report <slug> --all` — render PDFs to `out/`
 - `npm run studio` — Report Studio, a local editor for the same JSON
@@ -38,6 +52,13 @@ problem this repo exists to solve.
 | `studio/client/` | Studio UI — React + Tailwind + shadcn/ui |
 | `components.json`, `tsconfig.json` | root-level **only** so `npx shadcn@latest add …` resolves; the CLI needs them beside `package.json`. The app's real config is `studio/client/tsconfig.json`. |
 | `brand/` | logo, recoloured per surface at render time |
+| `scripts/doctor.js`, `scripts/setup.js` | environment check and setup. Node built-ins only, so they run before `npm install` |
+| `.claude/settings.json` | declares the claude-seo plugin for this project |
+
+`metrics` in the report JSON (Search Console, Core Web Vitals) is numbers only and
+never translated: labels come from `i18n/*.json`, values are formatted per locale.
+Keep it that way. A string added there would bypass `/translate-report` and the
+Studio's stale-translation tracking.
 
 ## Report Studio
 

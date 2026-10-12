@@ -13,7 +13,12 @@
     "studio": "npm run studio:build --silent && node studio/server.js",
     "studio:dev": "node studio/dev.js",
     "studio:build": "vite build --config studio/client/vite.config.ts",
-    "studio:check": "tsc -p studio/client/tsconfig.json --noEmit"
+    "studio:check": "tsc -p studio/client/tsconfig.json --noEmit",
+    "doctor": "node scripts/doctor.js",
+    "setup": "node scripts/setup.js"
+  },
+  "config": {
+    "claudeSeoVersion": "2.4.2"
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",

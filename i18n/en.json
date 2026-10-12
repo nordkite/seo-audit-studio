@@ -32,7 +32,9 @@
     "opportunity": "Opportunities",
     "pass": "What is already working",
     "roadmap": "Recommended order of work",
-    "notCovered": "Not covered by this audit"
+    "notCovered": "Not covered by this audit",
+    "searchConsole": "Search performance (Search Console)",
+    "coreWebVitals": "Core Web Vitals"
   },
   "sectionHints": {
     "critical": "Must fix — these actively cost you traffic today.",
@@ -59,5 +61,25 @@
     "warning": "warnings",
     "opportunity": "opportunities",
     "pass": "passing"
+  },
+  "metrics": {
+    "clicks": "Clicks",
+    "impressions": "Impressions",
+    "ctr": "CTR",
+    "position": "Avg. position",
+    "query": "Query",
+    "searchConsoleNote": "How the site performs in Google Search, from Search Console. Top queries by clicks.",
+    "performance": "Lighthouse score",
+    "fieldNote": "Field data: real Chrome users over the last 28 days, 75th percentile (CrUX).",
+    "labNote": "Lab data: one simulated Lighthouse run, not measured from real users.",
+    "ratings": {
+      "good": "Good",
+      "needsImprovement": "Needs improvement",
+      "poor": "Poor"
+    },
+    "devices": {
+      "mobile": "Mobile",
+      "desktop": "Desktop"
+    }
   }
 }

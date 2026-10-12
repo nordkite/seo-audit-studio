@@ -32,7 +32,9 @@
     "opportunity": "Возможности",
     "pass": "Что уже работает",
     "roadmap": "Рекомендуемый порядок работ",
-    "notCovered": "Что не вошло в аудит"
+    "notCovered": "Что не вошло в аудит",
+    "searchConsole": "Видимость в поиске (Search Console)",
+    "coreWebVitals": "Core Web Vitals"
   },
   "sectionHints": {
     "critical": "Необходимо исправить — это стоит вам трафика уже сегодня.",
@@ -59,5 +61,25 @@
     "warning": "предупреждений",
     "opportunity": "возможностей",
     "pass": "в норме"
+  },
+  "metrics": {
+    "clicks": "Клики",
+    "impressions": "Показы",
+    "ctr": "CTR",
+    "position": "Ср. позиция",
+    "query": "Запрос",
+    "searchConsoleNote": "Показатели сайта в поиске Google по данным Search Console. Основные запросы — по числу кликов.",
+    "performance": "Оценка Lighthouse",
+    "fieldNote": "Полевые данные: реальные пользователи Chrome за последние 28 дней, 75-й процентиль (CrUX).",
+    "labNote": "Лабораторные данные: один смоделированный прогон Lighthouse, а не данные реальных пользователей.",
+    "ratings": {
+      "good": "Хорошо",
+      "needsImprovement": "Требует улучшения",
+      "poor": "Плохо"
+    },
+    "devices": {
+      "mobile": "Мобильные",
+      "desktop": "Десктоп"
+    }
   }
 }

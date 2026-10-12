@@ -12,6 +12,54 @@ npm run report -- naa-ee --all
 # → out/SEO-Audit-naa-ee-ru.pdf
 ```
 
+## Setup
+
+Rendering PDFs needs only Node. **Auditing** a site also needs Claude Code and
+the [claude-seo](https://github.com/AgriciDaniel/claude-seo) plugin, which
+supplies the audit methodology and stays current with upstream.
+
+```bash
+npm run setup      # npm install + installs the claude-seo plugin + runs the doctor
+```
+
+Then open Claude Code in this folder and run, once:
+
+```
+/seo setup           # claude-seo's own Python runtime and Chromium
+/seo google setup    # optional: Search Console + Core Web Vitals data
+```
+
+Check everything at any time with `npm run doctor`. It prints the fix for
+anything missing.
+
+**Installing the plugin by hand.** `/plugin` only works in Claude Code's
+terminal version (run `claude`, then type it). It does not work in the VS Code
+chat or a plain shell. The shell form works anywhere:
+
+```bash
+claude plugin marketplace add AgriciDaniel/claude-seo --scope project
+claude plugin install claude-seo@agricidaniel-claude-seo --scope project
+```
+
+`.claude/settings.json` already declares the plugin, so Claude Code in its
+terminal version offers to install it when you trust this folder.
+
+**Python.** claude-seo needs Python 3.10+. Prefer 3.12 or 3.13. Brand-new
+releases can lack prebuilt packages for its dependencies (lxml, WeasyPrint),
+and setup then fails while compiling them. To use a specific interpreter, set
+`CLAUDE_SEO_PYTHON` to its path.
+
+**Tested version.** `config.claudeSeoVersion` in `package.json` is the claude-seo
+release these reports were last checked against. The doctor warns when the
+installed plugin differs. To move to a new release, update the plugin
+(`claude plugin marketplace update agricidaniel-claude-seo`), re-audit a site
+you know, compare the result in the Studio, then bump the version.
+
+**Google data for client sites.** The service account only sees properties it
+has been added to. Ask the client to add its `client_email` to their Search
+Console property as a **Restricted** user. Without access the report skips
+the Search Console section and lists it under "not covered".
+
 ## Usage
 
 ```bash
@@ -32,7 +80,7 @@ Three slash commands cover the full cycle:
 
 | Command | Does |
 |---|---|
-| `/new-audit <url>` | Audits a site, writes `reports/<slug>.json` (English) |
+| `/new-audit <url>` | Audits a site with claude-seo, writes `reports/<slug>.json` (English) |
 | `/translate-report <slug> all` | Fills in `et` and `ru`, cached into the same file |
 | `/seo-report <slug> --all` | Renders the PDFs |
 
@@ -125,7 +173,22 @@ studio/server.js          Studio API — node:http
 studio/lib/translate/     translation providers behind one interface
 studio/client/            Studio UI — React + Tailwind + shadcn/ui
 brand/                    logo, recoloured per surface at render time
+scripts/doctor.js         environment check, also the /new-audit preflight
+scripts/setup.js          npm install + claude-seo plugin install + doctor
+.claude/settings.json     declares the claude-seo plugin for this project
+.claude/commands/         /new-audit, /translate-report, /seo-report
 ```
+
+### Measured data
+
+`metrics` in the report JSON holds numbers from Search Console and Core Web
+Vitals. It is optional, and each sub-block renders as its own section after
+"Findings at a glance". The numbers are language-neutral: labels come from
+`i18n/*.json`, numbers and dates are formatted per locale, and search queries
+print verbatim. Nothing in `metrics` passes through translation. Core Web Vitals
+always prints whether it is field data (CrUX, real users) or lab data (one
+Lighthouse run), because the two are not interchangeable. The schema is in
+[.claude/commands/new-audit.md](.claude/commands/new-audit.md).
 
 `/translate-report` and both Studio providers read
 `i18n/translation-rules.md` — glossary handling, number localisation, register,
@@ -215,3 +278,6 @@ Then look at the PNGs. `pdftoppm` comes from poppler (`brew install poppler`).
 ## Requirements
 
 Node ≥ 20. `npm install` pulls its own Chromium via Puppeteer.
+
+For auditing, you also need Claude Code, the claude-seo plugin, and Python 3.10+
+(3.12 or 3.13 recommended). See [Setup](#setup).

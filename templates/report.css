@@ -343,6 +343,66 @@ code,
   color: var(--ink-muted);
 }
 
+/* --- Measured data (Search Console, Core Web Vitals) --------------------- */
+
+/* Reuses .glance cells. Values are longer than a finding count ("45 678",
+   "2,3 s"), so they run smaller than .glance__n. */
+/* Small enough to always fit a page; keeping it whole stops the heading from
+   being stranded at a page foot with its numbers on the next page. */
+.section--metrics {
+  break-inside: avoid;
+}
+
+.glance--metrics .glance__n {
+  font-size: 17pt;
+}
+
+.glance__sub {
+  margin-top: 1mm;
+  font-size: 7.6pt;
+  color: var(--ink-faint);
+}
+
+.metrics__note {
+  font-size: 8.4pt;
+  color: var(--ink-muted);
+  margin: 0 0 4mm;
+}
+
+.metrics__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.6pt;
+  margin-bottom: 4mm;
+}
+
+.metrics__table th {
+  text-align: left;
+  font-size: 7.6pt;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
+  padding: 0 2mm 1.5mm 0;
+}
+
+.metrics__table td {
+  border-bottom: 1px solid var(--rule);
+  padding: 1.5mm 2mm 1.5mm 0;
+  vertical-align: top;
+}
+
+.metrics__table tr {
+  break-inside: avoid;
+}
+
+.metrics__table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* --- Finding cards ------------------------------------------------------- */
 
 .finding {

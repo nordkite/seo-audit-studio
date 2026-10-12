@@ -32,7 +32,9 @@
     "opportunity": "Võimalused",
     "pass": "Mis juba toimib",
     "roadmap": "Soovitatav töö järjekord",
-    "notCovered": "Mida see audit ei katnud"
+    "notCovered": "Mida see audit ei katnud",
+    "searchConsole": "Nähtavus otsingus (Search Console)",
+    "coreWebVitals": "Core Web Vitals"
   },
   "sectionHints": {
     "critical": "Tuleb parandada — need maksavad teile liiklust juba täna.",
@@ -59,5 +61,25 @@
     "warning": "hoiatust",
     "opportunity": "võimalust",
     "pass": "korras"
+  },
+  "metrics": {
+    "clicks": "Klikid",
+    "impressions": "Näitamised",
+    "ctr": "CTR",
+    "position": "Keskm. positsioon",
+    "query": "Päring",
+    "searchConsoleNote": "Saidi tulemused Google'i otsingus Search Console'i andmetel. Populaarseimad päringud klikkide järgi.",
+    "performance": "Lighthouse'i skoor",
+    "fieldNote": "Väliandmed: päris Chrome'i kasutajad viimase 28 päeva jooksul, 75. protsentiil (CrUX).",
+    "labNote": "Laboriandmed: üks simuleeritud Lighthouse'i mõõtmine, mitte päris kasutajate andmed.",
+    "ratings": {
+      "good": "Hea",
+      "needsImprovement": "Vajab parandamist",
+      "poor": "Halb"
+    },
+    "devices": {
+      "mobile": "Mobiil",
+      "desktop": "Lauaarvuti"
+    }
   }
 }

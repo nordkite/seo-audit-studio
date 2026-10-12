@@ -50,6 +50,33 @@ export function validate(report, path) {
     }
   }
 
+  // Measured data is optional, but a missing number renders as "NaN" in a
+  // client PDF rather than erroring — so check the shape here.
+  const gsc = report.metrics?.searchConsole;
+  if (gsc) {
+    for (const k of ["clicks", "impressions", "ctr", "position"]) {
+      if (typeof gsc[k] !== "number") problems.push(`\`metrics.searchConsole.${k}\` must be a number`);
+    }
+    if (typeof gsc.ctr === "number" && gsc.ctr > 1) {
+      problems.push("`metrics.searchConsole.ctr` is a fraction (0.027), not a percentage (2.7)");
+    }
+    for (const k of ["start", "end"]) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(gsc[k] ?? "")) problems.push(`\`metrics.searchConsole.${k}\` must be an ISO date`);
+    }
+  }
+  const cwv = report.metrics?.coreWebVitals;
+  if (cwv) {
+    if (!["field", "lab"].includes(cwv.source)) {
+      problems.push('`metrics.coreWebVitals.source` must be "field" or "lab"');
+    }
+    for (const k of ["lcp", "inp", "cls", "performance"]) {
+      if (cwv[k] != null && typeof cwv[k] !== "number") problems.push(`\`metrics.coreWebVitals.${k}\` must be a number`);
+    }
+    if (typeof cwv.lcp === "number" && cwv.lcp < 50) {
+      problems.push("`metrics.coreWebVitals.lcp` is in milliseconds (2300), not seconds (2.3)");
+    }
+  }
+
   if (problems.length) {
     throw new Error(
       `Invalid report ${basename(path)}:\n${problems.map((p) => `  · ${p}`).join("\n")}`
