@@ -1,12 +1,6 @@
 import { FileDown, Languages, Plus, Save, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ReportPicker } from "@/components/ReportPicker";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
 import type { Doc, Lang, ReportSummary } from "@/lib/types";
@@ -20,6 +14,7 @@ interface Props {
   dirty: boolean;
   busy: boolean;
   onPick: (slug: string) => void;
+  onHome: () => void;
   onNew: () => void;
   onSave: () => void;
   onTranslate: (lang: Lang) => void;
@@ -35,6 +30,7 @@ export function Topbar({
   dirty,
   busy,
   onPick,
+  onHome,
   onNew,
   onSave,
   onTranslate,
@@ -45,40 +41,26 @@ export function Topbar({
 
   return (
     <header className="flex flex-wrap items-center gap-3 border-b px-4 py-2.5">
-      <span className="text-sm font-semibold tracking-tight">
-        SEO Audit Studio
-      </span>
-
-      <Separator orientation="vertical" className="h-5" />
-
-      {/* `items` is what makes the trigger show the label instead of the raw
-          value — Base UI's SelectValue renders the value string otherwise. */}
-      <Select
-        value={slug ?? ""}
-        onValueChange={(v) => v && onPick(v)}
-        items={reports.map((r) => ({ value: r.slug, label: `${r.site} — ${r.clientName}` }))}
+      <button
+        type="button"
+        onClick={onHome}
+        className="text-sm font-semibold tracking-tight transition-opacity hover:opacity-70"
+        title="All reports"
       >
-        <SelectTrigger className="h-8 w-64 text-sm">
-          <SelectValue placeholder="Choose a report…" />
-        </SelectTrigger>
-        <SelectContent>
-          {reports.map((r) => (
-            <SelectItem key={r.slug} value={r.slug}>
-              <span className="flex w-full items-center justify-between gap-4">
-                <span className="truncate">
-                  {r.site} — {r.clientName}
-                </span>
-                {/* Two audits of the same client are told apart by the filename. */}
-                <span className="font-mono text-[11px] text-muted-foreground">{r.slug}</span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+        SEO Audit Studio
+      </button>
 
-      <Button variant="ghost" size="sm" onClick={onNew}>
-        <Plus className="size-3.5" /> New
-      </Button>
+      {doc && (
+        <>
+          <Separator orientation="vertical" className="h-5" />
+
+          <ReportPicker reports={reports} slug={slug} onPick={onPick} />
+
+          <Button variant="ghost" size="sm" onClick={onNew}>
+            <Plus className="size-3.5" /> New
+          </Button>
+        </>
+      )}
 
       <div className="ml-auto flex items-center gap-2">
         {doc && (

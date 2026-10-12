@@ -54,6 +54,7 @@ export function listReports(): ReportSummary[] {
           auditedAt: report.meta?.auditedAt ?? null,
           findings: report.findings?.length ?? 0,
           langs: availableLangs(report),
+          scope: report.meta?.scope ?? "site",
         };
       } catch {
         return {
@@ -64,6 +65,7 @@ export function listReports(): ReportSummary[] {
           auditedAt: null,
           findings: 0,
           langs: [],
+          scope: "site",
           broken: true,
         };
       }

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Topbar } from "@/components/Topbar";
+import { Home } from "@/components/Home";
 import { MetaPanel } from "@/components/MetaPanel";
 import { FindingsBoard } from "@/components/FindingsBoard";
 import { ListPanel } from "@/components/ListPanel";
@@ -39,6 +40,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function App() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
+  const [listing, setListing] = useState(true);
   const [slug, setSlug] = useState<string | null>(null);
   const [doc, setDoc] = useState<Doc | null>(null);
   const [lang, setLang] = useState<Lang>("en");
@@ -59,7 +61,11 @@ export default function App() {
   const source = (report?.meta.sourceLang ?? "en") as Lang;
 
   useEffect(() => {
-    api.list().then((r) => setReports(r.reports)).catch((e) => toast.error(e.message));
+    api
+      .list()
+      .then((r) => setReports(r.reports))
+      .catch((e) => toast.error(e.message))
+      .finally(() => setListing(false));
     api.health().then(setHealth).catch(() => setHealth(null));
   }, []);
 
@@ -77,6 +83,17 @@ export default function App() {
       setBusy(false);
     }
   }, []);
+
+  const goHome = useCallback(() => {
+    if (!doc) return;
+    if (dirty && !window.confirm("Discard unsaved changes and go back to all reports?")) return;
+    setDoc(null);
+    setSlug(null);
+    setDirty(false);
+    setTouched(new Set());
+    // Scores and translations may have changed while the report was open.
+    api.list().then((r) => setReports(r.reports)).catch(() => {});
+  }, [doc, dirty]);
 
   const update = useCallback(
     (mutate: (draft: Report) => void, touchedPath?: string) => {
@@ -182,6 +199,7 @@ export default function App() {
         dirty={dirty}
         busy={busy || translating !== null}
         onPick={load}
+        onHome={goHome}
         onNew={() => setCreating(true)}
         onSave={save}
         onTranslate={translate}
@@ -190,9 +208,12 @@ export default function App() {
       />
 
       {!doc ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-          Choose a report to start editing.
-        </div>
+        <Home
+          reports={reports}
+          loading={listing || busy}
+          onPick={load}
+          onNew={() => setCreating(true)}
+        />
       ) : (
         <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
           <div className="min-h-0 space-y-4 overflow-auto p-4">

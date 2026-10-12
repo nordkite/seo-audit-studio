@@ -4,7 +4,7 @@
  * response is a type error on both sides. No Node imports: the client bundles
  * this file.
  */
-import type { Lang, Report } from "../../src/types.ts";
+import type { AuditScope, Lang, Report } from "../../src/types.ts";
 import type { BrandTheme } from "../../src/theme.ts";
 
 /** Per-field, per-language translation state. See state.ts. */
@@ -83,6 +83,7 @@ export interface ReportSummary {
   auditedAt: string | null;
   findings: number;
   langs: Lang[];
+  scope: AuditScope;
   broken?: boolean;
 }
 
