@@ -17,11 +17,12 @@ import { FindingsBoard } from "@/components/FindingsBoard";
 import { ListPanel } from "@/components/ListPanel";
 import { SectionsPanel } from "@/components/SectionsPanel";
 import { PreviewPane } from "@/components/PreviewPane";
+import { LangSelect } from "@/components/LangSelect";
 import { TranslateDialog } from "@/components/TranslateDialog";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { I18nField } from "@/components/I18nField";
 import { api } from "@/lib/api";
-import { counts, edit, paths, slugify } from "@/lib/report";
+import { LANG_LABEL, counts, edit, paths, slugify } from "@/lib/report";
 import { useTranslateSettings } from "@/lib/settings";
 import type { Doc, FieldStatus, Health, Lang, Report, ReportSummary } from "@/lib/types";
 
@@ -149,11 +150,16 @@ export default function App() {
       return;
     }
     setBusy(true);
-    const t = toast.loading("Rendering PDFs…");
+    const t = toast.loading(`Rendering ${LANG_LABEL[lang]} PDF…`);
     try {
-      const out = await api.render(slug, []);
+      // The language on screen, not --all: --all only picks up languages whose
+      // summary is translated, so a half-translated tab would silently render
+      // as English.
+      const out = await api.render(slug, [lang]);
       if (out.code === 0) {
-        toast.success("Rendered to out/", { id: t, description: out.stdout.trim().split("\n").slice(-3).join("\n") });
+        // stderr carries the "falling back to English for missing strings" warning.
+        const description = [out.stdout.trim(), out.stderr.trim()].filter(Boolean).join("\n");
+        toast.success("Rendered to out/", { id: t, description, duration: out.stderr.trim() ? 12000 : undefined });
       } else {
         toast.error("Render failed", { id: t, description: out.stderr || out.stdout, duration: 12000 });
       }
@@ -162,7 +168,7 @@ export default function App() {
     } finally {
       setBusy(false);
     }
-  }, [doc, slug, dirty]);
+  }, [doc, slug, dirty, lang]);
 
   const findingCounts = useMemo(() => counts(report?.findings ?? []), [report?.findings]);
 
@@ -177,7 +183,6 @@ export default function App() {
         busy={busy || translating !== null}
         onPick={load}
         onNew={() => setCreating(true)}
-        onLang={setLang}
         onSave={save}
         onTranslate={translate}
         onRender={render}
@@ -277,7 +282,11 @@ export default function App() {
           </div>
 
           <div className="hidden min-h-0 border-l xl:block">
-            <PreviewPane report={report!} lang={lang} />
+            <PreviewPane
+              report={report!}
+              lang={lang}
+              langPicker={doc && <LangSelect doc={doc} lang={lang} onLang={setLang} />}
+            />
           </div>
         </div>
       )}

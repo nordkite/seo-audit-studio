@@ -95,7 +95,7 @@ Set `"font": "inter"` in `brand/brand.json` and render:
 
 ```bash
 npm run report -- <slug> --lang ru
-pdffonts out/SEO-Audit-<slug>-ru.pdf
+pdffonts "$(ls -t out/SEO-Audit-<slug>-ru-*.pdf | head -1)"
 ```
 
 `pdffonts` (from poppler) lists every font embedded in the PDF. Expect your

@@ -37,7 +37,7 @@ Only needed when `templates/report.css` or `src/render.ts` changed:
 
 ```bash
 npm run report -- <slug> --lang en --html          # writes intermediate HTML to out/
-pdftoppm -png -r 90 -f 2 -l 4 out/SEO-Audit-<slug>-en.pdf out/_check
+pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-<slug>-en-*.pdf | head -1)" out/_check
 ```
 
 Then Read the PNGs. Check specifically:

@@ -9,9 +9,9 @@ once in `brand/`.
 ```bash
 npm run setup                      # also creates brand/ from brand.example/
 npm run report -- naa-ee --all
-# → out/SEO-Audit-naa-ee-en.pdf
-# → out/SEO-Audit-naa-ee-et.pdf
-# → out/SEO-Audit-naa-ee-ru.pdf
+# → out/SEO-Audit-naa-ee-en-<date>.pdf  (re-renders add _1, _2…)
+# → out/SEO-Audit-naa-ee-et-<date>.pdf  (re-renders add _1, _2…)
+# → out/SEO-Audit-naa-ee-ru-<date>.pdf  (re-renders add _1, _2…)
 ```
 
 ## Setup
@@ -323,7 +323,7 @@ against.
 
 ```bash
 npm run report -- naa-ee --lang en --html
-pdftoppm -png -r 90 -f 2 -l 4 out/SEO-Audit-naa-ee-en.pdf out/_check
+pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-naa-ee-en-*.pdf | head -1)" out/_check
 ```
 
 Then look at the PNGs. `pdftoppm` comes from poppler (`brew install poppler`).

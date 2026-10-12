@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Loader2, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,11 @@ const PAGE_HEIGHT_PX = (297 / 25.4) * 96;
 interface Props {
   report: Report;
   lang: Lang;
+  /** The language picker — owned by App, shown in this pane's header. */
+  langPicker?: ReactNode;
 }
 
-export function PreviewPane({ report, lang }: Props) {
+export function PreviewPane({ report, lang, langPicker }: Props) {
   const [part, setPart] = useState<"body" | "cover">("body");
   const [html, setHtml] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -110,12 +112,15 @@ export function PreviewPane({ report, lang }: Props) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b px-3 py-2">
-        <Tabs value={part} onValueChange={(v) => setPart(v as "body" | "cover")}>
-          <TabsList>
-            <TabsTrigger value="body">Body</TabsTrigger>
-            <TabsTrigger value="cover">Cover</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2">
+          {langPicker}
+          <Tabs value={part} onValueChange={(v) => setPart(v as "body" | "cover")}>
+            <TabsList>
+              <TabsTrigger value="body">Body</TabsTrigger>
+              <TabsTrigger value="cover">Cover</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {pending && <Loader2 className="size-3 animate-spin" />}
           <span title="An iframe is one continuous flow — only the PDF shows real page breaks.">

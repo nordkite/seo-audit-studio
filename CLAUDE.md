@@ -178,7 +178,7 @@ After any template change, verify visually. `page.pdf()` fails silently: a broke
 
 ```bash
 npm run report -- naa-ee --lang en --html
-pdftoppm -png -r 90 -f 2 -l 4 out/SEO-Audit-naa-ee-en.pdf out/_check
+pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-naa-ee-en-*.pdf | head -1)" out/_check
 ```
 
 Check: no finding split across a page boundary, header/footer present and

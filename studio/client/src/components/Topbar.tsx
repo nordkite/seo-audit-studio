@@ -1,6 +1,5 @@
 import { FileDown, Languages, Plus, Save, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -10,8 +9,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
-import { cn } from "@/lib/utils";
-import { LANGS, type Doc, type Lang, type ReportSummary } from "@/lib/types";
+import type { Doc, Lang, ReportSummary } from "@/lib/types";
 import { LANG_LABEL } from "@/lib/report";
 
 interface Props {
@@ -23,34 +21,10 @@ interface Props {
   busy: boolean;
   onPick: (slug: string) => void;
   onNew: () => void;
-  onLang: (lang: Lang) => void;
   onSave: () => void;
   onTranslate: (lang: Lang) => void;
   onRender: () => void;
   onSettings: () => void;
-}
-
-function LangTab({ lang, doc }: { lang: Lang; doc: Doc | null }) {
-  const t = doc?.totals?.[lang];
-  const source = (doc?.report.meta.sourceLang ?? "en") === lang;
-  const outstanding = (t?.stale ?? 0) + (t?.missing ?? 0);
-
-  return (
-    <TabsTrigger value={lang} className="gap-1.5">
-      {LANG_LABEL[lang]}
-      {!source && outstanding > 0 && (
-        <span
-          className={cn(
-            "rounded px-1 text-[10px] tabular-nums",
-            t?.stale ? "bg-sev-warning/20 text-sev-warning" : "bg-muted text-muted-foreground"
-          )}
-          title={`${t?.stale ?? 0} stale, ${t?.missing ?? 0} missing`}
-        >
-          {outstanding}
-        </span>
-      )}
-    </TabsTrigger>
-  );
 }
 
 export function Topbar({
@@ -62,7 +36,6 @@ export function Topbar({
   busy,
   onPick,
   onNew,
-  onLang,
   onSave,
   onTranslate,
   onRender,
@@ -106,19 +79,6 @@ export function Topbar({
       <Button variant="ghost" size="sm" onClick={onNew}>
         <Plus className="size-3.5" /> New
       </Button>
-
-      {doc && (
-        <>
-          <Separator orientation="vertical" className="h-5" />
-          <Tabs value={lang} onValueChange={(v) => onLang(v as Lang)}>
-            <TabsList>
-              {LANGS.map((l) => (
-                <LangTab key={l} lang={l} doc={doc} />
-              ))}
-            </TabsList>
-          </Tabs>
-        </>
-      )}
 
       <div className="ml-auto flex items-center gap-2">
         {doc && (

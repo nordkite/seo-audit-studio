@@ -77,6 +77,20 @@ function resolveReportPath(input: string): string {
   return hit;
 }
 
+/** Local date as YYYY-MM-DD: the day the PDF was rendered, not the audit date. */
+function today(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** `<base>.pdf`, or `<base>_1.pdf`, `<base>_2.pdf`… so a re-render never overwrites a PDF already sent. */
+function nextFreeName(dir: string, base: string, ext: string): string {
+  let file = join(dir, `${base}${ext}`);
+  for (let n = 1; existsSync(file); n++) file = join(dir, `${base}_${n}${ext}`);
+  return file;
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
 
@@ -126,7 +140,7 @@ async function main() {
   for (const lang of langs) {
     const started = Date.now();
     const pdf = await renderPdf(report, lang);
-    const file = join(opts.out, `SEO-Audit-${slug}-${lang}.pdf`);
+    const file = nextFreeName(opts.out, `SEO-Audit-${slug}-${lang}-${today()}`, ".pdf");
     writeFileSync(file, pdf);
 
     const kb = (pdf.length / 1024).toFixed(0);
