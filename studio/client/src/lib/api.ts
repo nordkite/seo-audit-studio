@@ -1,4 +1,6 @@
 import type {
+  BrandDoc,
+  BrandTheme,
   Doc,
   Health,
   Lang,
@@ -68,9 +70,22 @@ export const api = {
       unwrap<{ code: number; stdout: string; stderr: string }>(r)
     ),
 
-  /** Renders the editor's live buffer, so the preview never lags a save behind. */
-  preview: async (lang: Lang, report: Report, part: "body" | "cover") => {
-    const res = await post(`/api/preview/${lang}`, { report, part });
+  brand: () => fetch("/api/brand").then((r) => unwrap<BrandDoc>(r)),
+
+  /** Writes the theme into brand/brand.json. Every other brand field is left as it is. */
+  saveBrand: (theme: BrandTheme) =>
+    fetch("/api/brand", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme }),
+    }).then((r) => unwrap<BrandDoc>(r)),
+
+  /**
+   * Renders the editor's live buffer, so the preview never lags a save behind.
+   * A `theme` previews brand colours that have not been saved yet.
+   */
+  preview: async (lang: Lang, report: Report, part: "body" | "cover", theme?: BrandTheme) => {
+    const res = await post(`/api/preview/${lang}`, { report, part, theme });
     if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
     return res.text();
   },

@@ -43,7 +43,7 @@ creates it from the tracked template `brand.example/`:
 brand/
   brand.json         name, website, email, phone, logo file names, colour, font
   logo.svg           for white pages
-  logo-on-dark.svg   for the brand-colour cover (optional)
+  logo-on-dark.svg   for dark backgrounds (optional)
   fonts/             your own typefaces (optional, see fonts/README.md)
 ```
 
@@ -57,13 +57,16 @@ brand/
   "logoOnDark": "logo-on-dark.svg",
   "colors": { "primary": "#1f3a5f" },
   "font": "manrope",
-  "cover": "light"
+  "cover": { "background": "#1f3a5f", "text": "#ffffff" },
+  "body": { "background": "#ffffff", "text": "#121212" }
 }
 ```
 
 Only `name` is required. A logo is a file in `brand/` or an `https://` URL, and
-can be SVG, PNG, JPG, WebP or GIF. The primary colour is the accent (and fills the
-cover when `cover` is `"brand"`); its lighter tints are derived from it. `font`
+can be SVG, PNG, JPG, WebP or GIF. The primary colour is the accent; its lighter tints
+are derived from it. `cover` and `body` set each surface's background, text
+colour and logo variant, and every grey in the report is mixed from those two
+colours. The Studio's palette button edits them with a live preview. `font`
 picks a typeface from `fonts/`. The PDF's author,
 creator and producer metadata are set to `name`, so nothing in the file names
 this tool. Every field is described in

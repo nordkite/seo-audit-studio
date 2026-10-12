@@ -2,6 +2,7 @@
 // shared with the client so the two cannot drift apart.
 export * from "../../../../src/types.ts";
 export * from "../../../lib/types.ts";
+export * from "../../../../src/theme.ts";
 
 import type { Provider, Scope } from "../../../lib/types.ts";
 

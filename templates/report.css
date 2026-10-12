@@ -9,21 +9,27 @@
    ========================================================================== */
 
 :root {
-  /* --brand is overridden per render from brand/brand.json (see shell() in
-     src/render.ts). The tints derive from it, so a brand sets one colour. */
+  /* --brand, --paper, --ink and --accent are overridden per render from
+     brand/brand.json (see shell() in src/render.ts): --paper and --ink are the
+     background and text colour of whichever surface this document is, the
+     cover or the body. Everything below derives from them, so a brand sets a
+     handful of colours and a dark surface needs no restyling. */
   --brand: #293451;
-  --brand-700: color-mix(in srgb, var(--brand) 80%, black);
-  --brand-100: color-mix(in srgb, var(--brand) 12%, white);
-  --brand-050: color-mix(in srgb, var(--brand) 5%, white);
-
-  --ink: #111318;
-  --ink-muted: #545864;
-  --ink-faint: #676a73;
-  --rule: #e6e7eb;
-  --rule-strong: #d3d5db;
-  --surface: #f7f7f8;
-  --surface-2: #efeff2;
   --paper: #ffffff;
+  --ink: #121212;
+  /* The brand colour where it reads on --paper, otherwise --ink. */
+  --accent: var(--brand);
+
+  --brand-100: color-mix(in srgb, var(--brand) 12%, var(--paper));
+  --brand-050: color-mix(in srgb, var(--brand) 5%, var(--paper));
+
+  /* On the default white/#121212 these land on #585858, #6a6a6a, #e7e7e7… */
+  --ink-muted: color-mix(in srgb, var(--ink) 70.5%, var(--paper));
+  --ink-faint: color-mix(in srgb, var(--ink) 63%, var(--paper));
+  --rule: color-mix(in srgb, var(--ink) 10%, var(--paper));
+  --rule-strong: color-mix(in srgb, var(--ink) 17.7%, var(--paper));
+  --surface: color-mix(in srgb, var(--ink) 3.4%, var(--paper));
+  --surface-2: color-mix(in srgb, var(--ink) 6.8%, var(--paper));
 
   /* Each status has a strong tone (text, icons) and a soft tint (badges). */
   --critical: #c8322a;
@@ -41,6 +47,15 @@
   /* shell() overrides --font-sans when brand.json names a font. */
   --font-sans: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
   --font-mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+}
+
+/* A dark surface. The status tints above are pale pastels for white paper;
+   here they are mixed into the background instead, so a badge stays a badge. */
+.surface--dark {
+  --critical-bg: color-mix(in srgb, var(--critical) 22%, var(--paper));
+  --warning-bg: color-mix(in srgb, var(--warning) 22%, var(--paper));
+  --opportunity-bg: color-mix(in srgb, var(--opportunity) 22%, var(--paper));
+  --pass-bg: color-mix(in srgb, var(--pass) 22%, var(--paper));
 }
 
 /* --- Page setup ---------------------------------------------------------- */
@@ -123,14 +138,14 @@ body {
   flex-direction: column;
   overflow: hidden;
 
-  /* Surface colours the cover's children read; .cover--brand swaps them. */
+  /* Surface colours the cover's children read; a dark cover swaps some. */
   --c-ink: var(--ink);
   --c-muted: var(--ink-muted);
   --c-faint: var(--ink-faint);
   --c-rule: var(--rule);
   --c-card: var(--paper);
   --c-track: var(--surface-2);
-  --c-accent: var(--brand);
+  --c-accent: var(--accent);
 }
 
 /* A dot grid in the top-right corner, fading out towards the title. */
@@ -152,16 +167,14 @@ body {
   position: relative;
 }
 
-.cover--brand {
-  background: var(--brand);
-  color: #fff;
-  --c-ink: #fff;
-  --c-muted: rgba(255, 255, 255, 0.74);
-  --c-faint: rgba(255, 255, 255, 0.62);
-  --c-rule: rgba(255, 255, 255, 0.18);
-  --c-card: rgba(255, 255, 255, 0.06);
-  --c-track: rgba(255, 255, 255, 0.14);
-  --c-accent: #fff;
+/* On a dark cover the text is light, so the greys sit further from it and the
+   score card is lifted off the background rather than matching it. */
+.surface--dark .cover {
+  --c-muted: color-mix(in srgb, var(--ink) 74%, var(--paper));
+  --c-faint: color-mix(in srgb, var(--ink) 62%, var(--paper));
+  --c-rule: color-mix(in srgb, var(--ink) 18%, var(--paper));
+  --c-card: color-mix(in srgb, var(--ink) 6%, var(--paper));
+  --c-track: color-mix(in srgb, var(--ink) 14%, var(--paper));
 }
 
 .cover__top {
@@ -200,8 +213,8 @@ body {
   background: var(--c-card);
 }
 
-/* On the brand cover a logo with no dark variant is turned solid white so it
-   stays visible; brand.json's logoOnDark avoids it. */
+/* A surface set to logoOnDark with no such file gets the regular logo turned
+   solid white so it stays visible; supplying logoOnDark avoids it. */
 .logo--knockout {
   filter: brightness(0) invert(1);
 }
@@ -225,20 +238,9 @@ body {
 }
 
 .cover__kicker {
-  display: flex;
-  align-items: center;
-  gap: 2.5mm;
   font-size: 10pt;
   font-weight: 600;
   color: var(--c-accent);
-}
-
-.cover__kicker::before {
-  content: "";
-  width: 6mm;
-  height: 0.6mm;
-  border-radius: 1mm;
-  background: currentColor;
 }
 
 .cover__site {
@@ -319,10 +321,10 @@ body {
   color: var(--c-muted);
 }
 
-/* On the brand colour, status dots keep their hue but get a light ring so a
-   dark tone does not vanish into a dark brand. */
-.cover--brand .dot {
-  box-shadow: 0 0 0 0.35mm rgba(255, 255, 255, 0.7);
+/* On a dark cover, status dots keep their hue but get a light ring so a dark
+   tone does not vanish into the background. */
+.surface--dark .cover .dot {
+  box-shadow: 0 0 0 0.35mm color-mix(in srgb, var(--ink) 70%, transparent);
 }
 
 .cover__spacer {
@@ -884,7 +886,7 @@ code,
   border-radius: 50%;
   border: 1px solid var(--brand-100);
   background: var(--brand-050);
-  color: var(--brand);
+  color: var(--accent);
   font-size: 8.6pt;
   font-weight: 600;
   line-height: calc(7mm - 2px);

@@ -1,8 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Palette } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ThemePanel } from "@/components/ThemePanel";
 import { api } from "@/lib/api";
-import type { Lang, Report } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { BrandDoc, BrandTheme, Lang, Report } from "@/lib/types";
 
 /** A4 width/height in CSS pixels at 96dpi — report.css is authored in mm. */
 const PAGE_PX = (210 / 25.4) * 96;
@@ -19,6 +23,11 @@ export function PreviewPane({ report, lang }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [scale, setScale] = useState(1);
+  // brand.json's theme as saved, and the edit the preview is showing.
+  const [brand, setBrand] = useState<BrandDoc | null>(null);
+  const [theme, setTheme] = useState<BrandTheme | null>(null);
+  const [themeOpen, setThemeOpen] = useState(false);
+  const [savingTheme, setSavingTheme] = useState(false);
   // Real height of the rendered document, measured after each load — the
   // report is a continuous flow with no page breaks, so it's rarely exactly
   // one A4 page tall. Falls back to one page while the iframe is (re)loading.
@@ -27,11 +36,35 @@ export function PreviewPane({ report, lang }: Props) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
+    api
+      .brand()
+      .then((b) => {
+        setBrand(b);
+        setTheme(b.theme);
+      })
+      .catch((e) => setError((e as Error).message));
+  }, []);
+
+  const saveTheme = () => {
+    if (!theme) return;
+    setSavingTheme(true);
+    api
+      .saveBrand(theme)
+      .then((b) => {
+        setBrand(b);
+        setTheme(b.theme);
+        toast.success("Saved to brand.json");
+      })
+      .catch((e) => toast.error((e as Error).message, { duration: 8000 }))
+      .finally(() => setSavingTheme(false));
+  };
+
+  useEffect(() => {
     let cancelled = false;
     setPending(true);
     const t = setTimeout(() => {
       api
-        .preview(lang, report, part)
+        .preview(lang, report, part, theme ?? undefined)
         .then((h) => {
           if (cancelled) return;
           setHtml(h);
@@ -45,7 +78,7 @@ export function PreviewPane({ report, lang }: Props) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [report, lang, part]);
+  }, [report, lang, part, theme]);
 
   // Reset to the one-page fallback whenever the document changes, so a
   // shorter new report doesn't inherit the previous one's scaled height
@@ -88,8 +121,31 @@ export function PreviewPane({ report, lang }: Props) {
           <span title="An iframe is one continuous flow — only the PDF shows real page breaks.">
             approximate · no page breaks
           </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={`${part === "cover" ? "Cover" : "Body"} colours and logo`}
+            aria-pressed={themeOpen}
+            disabled={!brand}
+            onClick={() => setThemeOpen((o) => !o)}
+            className={cn(themeOpen && "bg-muted text-foreground")}
+          >
+            <Palette />
+          </Button>
         </div>
       </div>
+
+      {themeOpen && brand && theme && (
+        <ThemePanel
+          part={part}
+          saved={brand}
+          draft={theme}
+          saving={savingTheme}
+          onChange={setTheme}
+          onReset={() => setTheme(brand.theme)}
+          onSave={saveTheme}
+        />
+      )}
 
       <div ref={boxRef} className="min-h-0 flex-1 overflow-auto bg-muted/40 p-4">
         {error ? (

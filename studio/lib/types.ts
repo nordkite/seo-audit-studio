@@ -5,6 +5,7 @@
  * this file.
  */
 import type { Lang, Report } from "../../src/types.ts";
+import type { BrandTheme } from "../../src/theme.ts";
 
 /** Per-field, per-language translation state. See state.ts. */
 export type FieldStatus = "source" | "current" | "stale" | "missing";
@@ -62,4 +63,16 @@ export interface ReportSummary {
   findings: number;
   langs: Lang[];
   broken?: boolean;
+}
+
+/** GET/PUT /api/brand: the theme part of brand/brand.json. */
+export interface BrandDoc {
+  theme: BrandTheme;
+  /** Which logo files brand.json names, so the editor can say what "logoOnDark" will show. */
+  hasLogo: boolean;
+  hasLogoOnDark: boolean;
+  /** brand/ is missing and the example is standing in. Saving is refused. */
+  isExample: boolean;
+  /** Where saving writes, for the editor to show. */
+  file: string;
 }

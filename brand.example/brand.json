@@ -9,5 +9,12 @@
     "primary": "#1f3a5f"
   },
   "font": "manrope",
-  "cover": "light"
+  "cover": {
+    "background": "#ffffff",
+    "text": "#121212"
+  },
+  "body": {
+    "background": "#ffffff",
+    "text": "#121212"
+  }
 }

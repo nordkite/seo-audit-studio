@@ -4,6 +4,8 @@ import { spawn } from "node:child_process";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, extname, basename } from "node:path";
 import { renderBody, renderCover } from "../src/render.ts";
+import { brandSource, readBrandConfig, resolveBrand, themeOf, withTheme } from "../src/brand.ts";
+import type { BrandTheme } from "../src/theme.ts";
 import { SUPPORTED_LANGS, isLang } from "../src/i18n.ts";
 import type { Lang, Report } from "../src/types.ts";
 import {
@@ -18,7 +20,7 @@ import {
 } from "./lib/store.ts";
 import { translateReport } from "./lib/translate/index.ts";
 import { DEFAULT_MODEL } from "./lib/translate/anthropic.ts";
-import type { Health } from "./lib/types.ts";
+import type { BrandDoc, Health } from "./lib/types.ts";
 
 const PORT = Number(process.env.STUDIO_PORT ?? 4321);
 const DIST = join(ROOT, "studio", "client", "dist");
@@ -140,6 +142,46 @@ async function translate(req: IncomingMessage, res: ServerResponse, slug: string
   return json(res, 200, result);
 }
 
+/* ----------------------------------------------------------------- brand -- */
+
+function brandDoc(): BrandDoc {
+  const { file, isExample } = brandSource();
+  const cfg = readBrandConfig(file);
+  return {
+    theme: themeOf(cfg),
+    hasLogo: Boolean(cfg.logo),
+    hasLogoOnDark: Boolean(cfg.logoOnDark),
+    isExample,
+    file,
+  };
+}
+
+/**
+ * brand.json with an edited theme in place of its own, validated. Throws a 400
+ * listing the problems rather than letting a bad colour reach the renderer.
+ */
+function brandWith(theme: BrandTheme) {
+  const { dir, file, isExample } = brandSource();
+  const cfg = withTheme(readBrandConfig(file), theme);
+  try {
+    return { cfg, brand: resolveBrand(cfg, dir, { file, isExample }), file, isExample };
+  } catch (err) {
+    throw httpError(400, (err as Error).message);
+  }
+}
+
+/**
+ * Only the theme is written; every other field in brand.json is carried over
+ * untouched. Refused while the example stands in for brand/, which would
+ * otherwise rewrite the tracked template.
+ */
+function saveBrandTheme(theme: BrandTheme): BrandDoc {
+  const { cfg, file, isExample } = brandWith(theme);
+  if (isExample) throw httpError(409, "No brand/brand.json yet. Run `npm run setup` first.");
+  writeFileSync(file, `${JSON.stringify(cfg, null, 2)}\n`);
+  return brandDoc();
+}
+
 /* ---------------------------------------------------------------- routes -- */
 
 async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
@@ -157,6 +199,13 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
       hasEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
     };
     return json(res, 200, health);
+  }
+
+  if (p === "/api/brand" && req.method === "GET") return json(res, 200, brandDoc());
+  if (p === "/api/brand" && req.method === "PUT") {
+    const { theme } = await readBody(req);
+    if (!theme) throw httpError(400, "Missing `theme`");
+    return json(res, 200, saveBrandTheme(theme));
   }
 
   if (p === "/api/reports" && req.method === "GET") {
@@ -182,11 +231,17 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
   }
 
   // Preview renders the editor's live buffer, not the file on disk — otherwise
-  // the preview would lag one save behind every keystroke.
+  // the preview would lag one save behind every keystroke. The same goes for an
+  // unsaved brand theme.
   if (seg[0] === "api" && seg[1] === "preview" && seg[2] && req.method === "POST") {
     const lang = assertLang(seg[2]);
-    const { report, part = "body" }: { report: Report; part?: string } = await readBody(req);
-    const html = part === "cover" ? renderCover(report, lang) : renderBody(report, lang);
+    const {
+      report,
+      part = "body",
+      theme,
+    }: { report: Report; part?: string; theme?: BrandTheme } = await readBody(req);
+    const brand = theme ? brandWith(theme).brand : undefined;
+    const html = part === "cover" ? renderCover(report, lang, brand) : renderBody(report, lang, brand);
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return res.end(html);
   }

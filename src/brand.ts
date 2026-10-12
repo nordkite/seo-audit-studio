@@ -1,5 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import {
+  DEFAULT_PRIMARY,
+  LOGO_VARIANTS,
+  SURFACES,
+  isHex,
+  resolveSurface,
+  type BrandTheme,
+  type Surface,
+  type SurfaceConfig,
+} from "./theme.ts";
 
 /**
  * White-label configuration: whose name, logo and colour go on the report.
@@ -28,7 +38,7 @@ export interface BrandConfig {
   phone?: string;
   /** For light surfaces. A path relative to the brand folder, or an https:// URL. */
   logo?: string;
-  /** For the dark cover. Without it, `logo` is knocked out to white. */
+  /** For dark surfaces. Without it, `logo` is knocked out to white. */
   logoOnDark?: string;
   colors?: { primary?: string };
   /**
@@ -36,12 +46,17 @@ export interface BrandConfig {
    * the shared library at the repo root. Without it, the system sans stack.
    */
   font?: string;
-  /** "light" (default): white cover. "brand": the cover is set on the primary colour. */
-  cover?: CoverStyle;
+  /**
+   * Background, text colour and logo of the cover. The older shorthands still
+   * work: "light" is the default, "brand" sets the cover on the primary colour.
+   */
+  cover?: SurfaceConfig | LegacyCover;
+  /** Background, text colour and logo of the body pages. */
+  body?: SurfaceConfig;
 }
 
-export const COVER_STYLES = ["light", "brand"] as const;
-export type CoverStyle = (typeof COVER_STYLES)[number];
+const LEGACY_COVERS = ["light", "brand"] as const;
+type LegacyCover = (typeof LEGACY_COVERS)[number];
 
 /** A typeface ready to inline: `@font-face` rules with the files as data URIs. */
 export interface BrandFont {
@@ -69,12 +84,11 @@ export interface Brand {
   logoOnDark: string | null;
   primary: string;
   font: BrandFont | null;
-  cover: CoverStyle;
+  cover: Surface;
+  body: Surface;
   /** True when brand/ is missing and the example stands in for it. */
   isExample: boolean;
 }
-
-const DEFAULT_PRIMARY = "#293451";
 
 const MIME: Record<string, string> = {
   svg: "image/svg+xml",
@@ -195,38 +209,102 @@ function hostOf(url: string): string {
   }
 }
 
-export function loadBrand(): Brand {
+/** Where brand.json is read from: brand/, or the example when there is none. */
+export function brandSource(): { dir: string; file: string; isExample: boolean } {
   const isExample = !existsSync(join(BRAND_DIR, "brand.json"));
   const dir = isExample ? EXAMPLE_DIR : BRAND_DIR;
-  const file = join(dir, "brand.json");
+  return { dir, file: join(dir, "brand.json"), isExample };
+}
 
-  let cfg: BrandConfig;
+export function readBrandConfig(file: string): BrandConfig {
   try {
-    cfg = JSON.parse(readFileSync(file, "utf8"));
+    return JSON.parse(readFileSync(file, "utf8"));
   } catch (err) {
     throw new Error(`Could not read brand config ${file}: ${(err as Error).message}`);
   }
+}
 
+/** A surface's config with the legacy cover shorthands spelled out. */
+function surfaceConfig(raw: unknown, primary: string): SurfaceConfig {
+  if (raw === "brand") return { background: primary, text: "#ffffff" };
+  if (raw === undefined || raw === "light") return {};
+  return raw as SurfaceConfig;
+}
+
+/** The theme part of a config, as the Studio edits it. */
+export function themeOf(cfg: BrandConfig): BrandTheme {
+  const primary = cfg.colors?.primary ?? DEFAULT_PRIMARY;
+  return {
+    primary,
+    cover: surfaceConfig(cfg.cover, primary),
+    body: surfaceConfig(cfg.body, primary),
+  };
+}
+
+/** A config with its theme replaced, every other field left as it was. */
+export function withTheme(cfg: BrandConfig, theme: BrandTheme): BrandConfig {
+  const clean = (s: SurfaceConfig): SurfaceConfig =>
+    Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined && v !== ""));
+  return {
+    ...cfg,
+    colors: { ...cfg.colors, primary: theme.primary },
+    cover: clean(theme.cover),
+    body: clean(theme.body),
+  };
+}
+
+function checkSurface(raw: unknown, field: string, problems: string[]): void {
+  if (raw === undefined) return;
+  if (field === "cover" && LEGACY_COVERS.includes(raw as LegacyCover)) return;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    const legacy = field === "cover" ? `, or one of ${LEGACY_COVERS.map((c) => `"${c}"`).join(", ")}` : "";
+    problems.push(`\`${field}\` must be an object like { "background": "#ffffff", "text": "#121212" }${legacy}`);
+    return;
+  }
+  const s = raw as Record<string, unknown>;
+  for (const key of ["background", "text"]) {
+    if (s[key] !== undefined && !isHex(s[key])) {
+      problems.push(`\`${field}.${key}\` must be a 6-digit hex colour, like #ffffff`);
+    }
+  }
+  if (s.logo !== undefined && !LOGO_VARIANTS.includes(s.logo as never)) {
+    problems.push(`\`${field}.logo\` must be one of ${LOGO_VARIANTS.map((v) => `"${v}"`).join(", ")}`);
+  }
+}
+
+export function loadBrand(): Brand {
+  const { dir, file, isExample } = brandSource();
+  return resolveBrand(readBrandConfig(file), dir, { file, isExample });
+}
+
+/**
+ * Validates a config and resolves it for the renderer. Separate from
+ * loadBrand() so the Studio can check an edited config before writing it, and
+ * preview one it has not written yet.
+ */
+export function resolveBrand(
+  cfg: BrandConfig,
+  dir: string,
+  { file = join(dir, "brand.json"), isExample = false } = {}
+): Brand {
   const problems: string[] = [];
   if (typeof cfg.name !== "string" || !cfg.name.trim()) problems.push("`name` is required");
 
   const primary = cfg.colors?.primary ?? DEFAULT_PRIMARY;
-  if (!/^#[0-9a-f]{6}$/i.test(primary)) {
+  if (!isHex(primary)) {
     problems.push("`colors.primary` must be a 6-digit hex colour, like #293451");
   }
 
   const logo = cfg.logo ? logoSrc(dir, cfg.logo, "logo", problems) : null;
   const logoOnDark = cfg.logoOnDark ? logoSrc(dir, cfg.logoOnDark, "logoOnDark", problems) : null;
 
-  const cover = cfg.cover ?? "light";
-  if (!COVER_STYLES.includes(cover)) {
-    problems.push(`\`cover\` must be one of ${COVER_STYLES.join(", ")}`);
-  }
+  for (const name of SURFACES) checkSurface(cfg[name], name, problems);
 
   const font = cfg.font ? loadFont(dir, cfg.font, problems) : null;
 
   if (problems.length) throw invalid(file, problems);
 
+  const theme = themeOf(cfg);
   const website = cfg.website?.trim() || null;
   return {
     name: cfg.name.trim(),
@@ -238,7 +316,8 @@ export function loadBrand(): Brand {
     logoOnDark,
     primary,
     font,
-    cover,
+    cover: resolveSurface(theme.cover, primary),
+    body: resolveSurface(theme.body, primary),
     isExample,
   };
 }

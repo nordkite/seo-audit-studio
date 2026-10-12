@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadStrings, t, formatDate, formatNumber, type Strings } from "./i18n.ts";
 import { loadBrand, type Brand } from "./brand.ts";
+import type { LogoVariant, Surface } from "./theme.ts";
 import {
   SEVERITIES,
   type CoreWebVitalsMetrics,
@@ -32,11 +33,12 @@ const esc = (s: unknown): string =>
     .replace(/"/g, "&quot;");
 
 /**
- * The brand mark for one surface. With no dark variant, the cover knocks the
- * regular logo out to white (see .logo--knockout); with no logo at all, the
+ * The brand mark a surface asks for. With no dark variant, `logoOnDark` knocks
+ * the regular logo out to white (see .logo--knockout); with no logo at all, the
  * brand name stands in as a wordmark.
  */
-function logo(brand: Brand, { onDark = false } = {}): string {
+function logo(brand: Brand, variant: LogoVariant): string {
+  const onDark = variant === "logoOnDark";
   if (onDark && brand.logoOnDark) return `<img src="${esc(brand.logoOnDark)}" alt="${esc(brand.name)}">`;
   if (brand.logo) {
     const knockout = onDark ? ` class="logo--knockout"` : "";
@@ -370,19 +372,27 @@ function fontStack(brand: Brand): string {
 }
 
 /**
- * The brand colour and font go in as custom properties; report.css derives
- * its tints from the one and sets every text style in the other.
+ * The brand colour, the surface's colours and the font go in as custom
+ * properties. report.css derives every grey, rule and tint from them, so a
+ * dark surface needs no rules of its own beyond .surface--dark.
  */
-function shell(lang: Lang, title: string, body: string, brand: Brand): string {
+function shell(lang: Lang, title: string, body: string, brand: Brand, surface: Surface): string {
   const css = readFileSync(join(ROOT, "templates", "report.css"), "utf8");
+  const vars = [
+    `--brand: ${brand.primary}`,
+    `--paper: ${surface.background}`,
+    `--ink: ${surface.text}`,
+    `--accent: ${surface.accent}`,
+    `--font-sans: ${fontStack(brand)}`,
+  ].join("; ");
   return `<!doctype html>
-<html lang="${lang}">
+<html lang="${lang}"${surface.dark ? ` class="surface--dark"` : ""}>
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
 ${brand.font ? `<style>${brand.font.css}</style>` : ""}
 <style>${css}</style>
-<style>:root { --brand: ${brand.primary}; --font-sans: ${fontStack(brand)}; }</style>
+<style>:root { ${vars}; }</style>
 </head>
 <body>${body}</body>
 </html>`;
@@ -394,17 +404,20 @@ function severityCounts(report: Report): Record<Severity, number> {
   ) as Record<Severity, number>;
 }
 
-/** Cover page — rendered as its own zero-margin document so it bleeds. */
-export function renderCover(report: Report, lang: Lang): string {
+/**
+ * Cover page — rendered as its own zero-margin document so it bleeds.
+ *
+ * `brand` defaults to brand.json; the Studio passes an unsaved edit of it to
+ * preview colours before they are written.
+ */
+export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand()): string {
   const s = loadStrings(lang);
-  const brand = loadBrand();
   const sourceLang = report.meta.sourceLang ?? "en";
   const { locale } = s;
   const m = report.meta;
 
   const counts = severityCounts(report);
   const band = scoreBand(m.score);
-  const onBrand = brand.cover === "brand";
 
   const countItems = SEVERITIES.map(
     (sev) => `
@@ -418,9 +431,9 @@ export function renderCover(report: Report, lang: Lang): string {
     lang,
     `${s.doc.kicker} — ${m.site}`,
     `
-<div class="cover${onBrand ? " cover--brand" : ""}">
+<div class="cover">
   <div class="cover__top">
-    <div class="cover__logo">${logo(brand, { onDark: onBrand })}</div>
+    <div class="cover__logo">${logo(brand, brand.cover.logo)}</div>
     <div class="cover__tag">${esc(formatDate(m.auditedAt, locale))}</div>
   </div>
 
@@ -468,14 +481,14 @@ export function renderCover(report: Report, lang: Lang): string {
     }
   </dl>
 </div>`,
-    brand
+    brand,
+    brand.cover
   );
 }
 
 /** Body pages — rendered with margins so the running header/footer fit. */
-export function renderBody(report: Report, lang: Lang): string {
+export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand()): string {
   const s = loadStrings(lang);
-  const brand = loadBrand();
   const sourceLang = report.meta.sourceLang ?? "en";
   const m = report.meta;
 
@@ -582,7 +595,7 @@ export function renderBody(report: Report, lang: Lang): string {
   ${at("notCovered")}
 
   <div class="endslug">
-    <div class="endslug__logo">${logo(brand)}</div>
+    <div class="endslug__logo">${logo(brand, brand.body.logo)}</div>
     <div class="endslug__text">
       ${brandLink(brand)}<br>
       ${contact ? `${contact}<br>` : ""}
@@ -591,34 +604,57 @@ export function renderBody(report: Report, lang: Lang): string {
   </div>
 
 </main>`,
-    brand
+    brand,
+    brand.body
   );
 }
+
+/**
+ * Body page margins in mm, reserved for the running header and footer. Must
+ * exceed the templates' heights or they clip.
+ */
+export const BODY_MARGIN_MM = { top: 20, bottom: 18 } as const;
 
 /**
  * Puppeteer renders header/footer templates in an isolated context: no page
  * CSS, no external assets, and a default font-size of ~0. Everything must be
  * inline, and page.pdf() margins must reserve vertical room or these clip.
  */
-export function runningTemplates(report: Report, lang: Lang): { header: string; footer: string } {
+export function runningTemplates(
+  report: Report,
+  lang: Lang,
+  brand: Brand = loadBrand()
+): { header: string; footer: string } {
   const s = loadStrings(lang);
-  const brand = loadBrand();
   const m = report.meta;
-  // These templates do not see the body page's fonts, so the brand font is
-  // inlined again into each. Data URIs are the one kind of resource they load.
+  // These templates do not see the body page's fonts or custom properties, so
+  // the brand font is inlined again into each and the colours spelled out.
+  // Data URIs are the one kind of resource they load.
   const font = fontStack(brand).replace(/"/g, "'");
   const fontCss = brand.font ? `<style>${brand.font.css}</style>` : "";
-  const base = `font-family: ${font}; font-size: 7pt; color: #676a73;`;
+  const { text, background } = brand.body;
+  const faint = `color-mix(in srgb, ${text} 63%, ${background})`;
+  const base = `font-family: ${font}; font-size: 7pt; color: ${faint};`;
+  // Chrome leaves page margins unpainted whatever the body's background, so a
+  // coloured body would sit between two white bands. Each template paints its
+  // own band. The templates are laid over the whole page, above the content, so
+  // the paint must stop at the margin. White needs none.
+  const paint = (edge: "top" | "bottom") =>
+    /^#f{6}$/i.test(background)
+      ? ""
+      : `<div style="position: absolute; left: 0; right: 0; ${edge}: 0;
+                     height: ${BODY_MARGIN_MM[edge]}mm; background: ${background};
+                     -webkit-print-color-adjust: exact; print-color-adjust: exact;"></div>`;
 
-  const header = `${fontCss}
-    <div style="${base} width: 100%; padding: 0 18mm; margin-top: 8mm;
+  const header = `${fontCss}${paint("top")}
+    <div style="${base} position: relative; width: 100%; padding: 0 18mm; margin-top: 8mm;
                 display: flex; justify-content: space-between; align-items: center;">
-      <span style="color: #111318; font-weight: 600;">${esc(m.site)}</span>
+      <span style="color: ${text}; font-weight: 600;">${esc(m.site)}</span>
       <span>${esc(s.doc.kicker)}</span>
     </div>`;
 
-  const footer = `${fontCss}
-    <div style="${base} width: 100%; padding: 0 18mm; margin-bottom: 7mm;
+  const footer = `${fontCss}${paint("bottom")}
+    <div style="${base} position: relative; width: 100%; padding: 0 18mm; margin-bottom: 7mm;
                 display: flex; justify-content: space-between; align-items: center;">
       <span>${esc(brand.websiteLabel)}</span>
       <span>${esc(s.doc.page)} <span class="pageNumber"></span> ${esc(s.doc.of)} <span class="totalPages"></span></span>

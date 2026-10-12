@@ -1,6 +1,6 @@
 import puppeteer, { type Page } from "puppeteer";
 import { PDFDocument } from "pdf-lib";
-import { renderCover, renderBody, runningTemplates } from "./render.ts";
+import { renderCover, renderBody, runningTemplates, BODY_MARGIN_MM } from "./render.ts";
 import { loadBrand } from "./brand.ts";
 import type { Lang, Report } from "./types.ts";
 
@@ -43,8 +43,7 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
       displayHeaderFooter: true,
       headerTemplate: header,
       footerTemplate: footer,
-      // Must exceed the header/footer template heights or they clip.
-      margin: { top: "20mm", right: 0, bottom: "18mm", left: 0 },
+      margin: { top: `${BODY_MARGIN_MM.top}mm`, right: 0, bottom: `${BODY_MARGIN_MM.bottom}mm`, left: 0 },
     });
 
     return await merge([coverPdf, bodyPdf], report, lang);

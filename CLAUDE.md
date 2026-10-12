@@ -44,7 +44,10 @@ template. Never hard-code a company name, URL, logo or brand colour in
 `src/`, `templates/` or the Studio. Add a field to `BrandConfig` instead, and
 document it in `brand.example/README.md`. The typeface is brand config too
 (`font`), so never hard-code a font family in `report.css`; it reads
-`--font-sans`. The PDF's author/creator/producer
+`--font-sans`. The same goes for surface colours: `brand.json`'s `cover` and
+`body` set `--paper` and `--ink` per document, and every grey, rule and tint in
+`report.css` is a `color-mix()` of the two. Never add a literal grey or white
+there, or a dark surface breaks. The PDF's author/creator/producer
 metadata is the brand name too, so the tool never shows through to a client.
 
 ## TypeScript
@@ -82,6 +85,7 @@ them. Run `npm run typecheck` after changing either.
 | `templates/report.css` | print stylesheet |
 | `src/types.ts` | report schema and its constants (langs, severities, anchors) |
 | `src/brand.ts` | loads and validates `brand/brand.json` |
+| `src/theme.ts` | cover/body surface colours and logo choice. No Node imports, so the Studio client shares it |
 | `src/render.ts` | `(report, lang)` → HTML |
 | `src/pdf.ts` | HTML → PDF, two-pass cover+body merge |
 | `src/validate.ts` | report rules, shared by the CLI and the Studio |
