@@ -29,6 +29,27 @@ export interface Doc {
 export const PROVIDERS = ["cli", "api"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
+/** Thinking depth. On current models thinking is always on; effort is the only dial. */
+export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+export type Effort = (typeof EFFORTS)[number];
+
+/** One entry in the Model dropdown. `value` is what goes to the provider; "" means its default. */
+export interface ModelOption {
+  value: string;
+  label: string;
+  /** Effort levels this model accepts. Empty when it takes no effort setting at all. */
+  efforts: Effort[];
+}
+
+/** POST /api/models. */
+export interface ModelsResult {
+  models: ModelOption[];
+  /** `live`: asked the API with this key. `aliases`: Claude Code's own names. `fallback`: built-in list. */
+  source: "live" | "aliases" | "fallback";
+  /** Why the live list could not be fetched, when source is `fallback`. */
+  error?: string;
+}
+
 /** How much to retranslate. `stale` also covers anything never translated. */
 export type Scope = "missing" | "stale" | "all";
 

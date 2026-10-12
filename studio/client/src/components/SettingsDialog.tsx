@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { KeyRound, TerminalSquare } from "lucide-react";
 import {
   Dialog,
@@ -17,15 +18,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { ClientScope, Health, Provider, TranslateSettings } from "@/lib/types";
+import type {
+  ClientScope,
+  Effort,
+  Health,
+  ModelsResult,
+  Provider,
+  TranslateSettings,
+} from "@/lib/types";
 
-const MODELS = [
-  { value: "", label: "Default" },
-  { value: "claude-opus-5", label: "Opus 5 — best quality" },
-  { value: "claude-sonnet-5", label: "Sonnet 5 — cheaper" },
-  { value: "claude-haiku-4-5", label: "Haiku 4.5 — cheapest" },
-];
+const EFFORT_LABEL: Record<Effort, string> = {
+  low: "Low — fastest, recommended",
+  medium: "Medium",
+  high: "High",
+  xhigh: "Extra high",
+  max: "Max — slowest",
+};
+
+const NO_EFFORT = [{ value: "", label: "Not adjustable" }];
 
 const SCOPES = [
   { value: "stale", label: "Missing and stale only" },
@@ -60,11 +72,60 @@ export function SettingsDialog({
   onChange: (patch: Partial<TranslateSettings>) => void;
   onClose: () => void;
 }) {
-  const models = MODELS.map((m) =>
-    m.value === "" && health?.defaultModel
-      ? { ...m, label: `Default — ${health.defaultModel}` }
-      : m
-  );
+  const { provider, apiKey, model, effort } = settings;
+  const [list, setList] = useState<ModelsResult | null>(null);
+
+  // Ask the server what this provider can run. Debounced, because the API key
+  // field changes on every keystroke and each change means a new list.
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api
+        .models(provider, apiKey, controller.signal)
+        .then(setList)
+        .catch(() => {
+          /* aborted, or the server is down: keep the last list */
+        });
+    }, provider === "api" ? 400 : 0);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [provider, apiKey]);
+
+  const models = list?.models ?? [];
+  const known = models.some((m) => m.value === model);
+  // A model saved earlier may be missing from a fallback list; show it rather
+  // than blank the trigger.
+  const options = known || !model ? models : [...models, { value: model, label: model, efforts: [] }];
+  const efforts = models.find((m) => m.value === model)?.efforts ?? [];
+  const effortOptions = efforts.length
+    ? efforts.map((e) => ({ value: e, label: EFFORT_LABEL[e] }))
+    : NO_EFFORT;
+
+  // Keep the saved choice valid for what this provider offers: a Claude Code
+  // alias means nothing to the API, and not every model takes every effort.
+  useEffect(() => {
+    if (!list) return;
+    const patch: Partial<TranslateSettings> = {};
+    const fromList = list.source !== "fallback";
+    const validModel = known || (!fromList && (model === "" || model.startsWith("claude-")));
+    if (!validModel) patch.model = "";
+
+    const levels = list.models.find((m) => m.value === (patch.model ?? model))?.efforts;
+    if (levels) {
+      if (!levels.length) patch.effort = "";
+      else if (!effort || !levels.includes(effort)) patch.effort = levels.includes("low") ? "low" : levels[0];
+    }
+    if (Object.keys(patch).length) onChange(patch);
+  }, [list, model, effort, known, onChange]);
+
+  const note =
+    list?.source === "live"
+      ? "Every model your API key can use, newest first."
+      : list?.source === "aliases"
+        ? "Claude Code picks the newest model in each family your plan includes."
+        : list?.error;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -118,21 +179,43 @@ export function SettingsDialog({
             </div>
           )}
 
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Model</Label>
+            <Select
+              value={model}
+              onValueChange={(v) => onChange({ model: v ?? "" })}
+              items={options}
+            >
+              <SelectTrigger className="h-8 w-full text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {options.map((m) => (
+                  <SelectItem key={m.value || "default"} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {note && <p className="text-xs text-muted-foreground">{note}</p>}
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Model</Label>
+              <Label className="text-xs text-muted-foreground">Thinking effort</Label>
               <Select
-                value={settings.model}
-                onValueChange={(v) => onChange({ model: v ?? "" })}
-                items={models}
+                value={effort}
+                onValueChange={(v) => onChange({ effort: (v ?? "") as Effort | "" })}
+                items={effortOptions}
+                disabled={!efforts.length}
               >
                 <SelectTrigger className="h-8 w-full text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m.value || "default"} value={m.value}>
-                      {m.label}
+                  {effortOptions.map((e) => (
+                    <SelectItem key={e.value || "none"} value={e.value}>
+                      {e.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

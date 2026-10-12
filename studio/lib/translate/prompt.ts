@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { ROOT } from "../store.ts";
 import { translatableFields } from "../state.ts";
 import type { I18n, Lang, Report } from "../../../src/types.ts";
-import type { FieldStatusMap, Scope, Usage } from "../types.ts";
+import type { Effort, FieldStatusMap, Scope, Usage } from "../types.ts";
 
 /**
  * The one translation prompt, shared by every provider.
@@ -27,6 +27,8 @@ export interface TranslateOptions {
   to: Lang;
   apiKey?: string;
   model?: string;
+  /** Omitted for models that take no effort setting. */
+  effort?: Effort;
   signal?: AbortSignal;
 }
 

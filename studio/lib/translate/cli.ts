@@ -7,6 +7,7 @@ import {
   type ProviderReply,
   type TranslateOptions,
 } from "./prompt.ts";
+import { EFFORTS, type ModelsResult } from "../types.ts";
 
 /**
  * Translate through the `claude` CLI, on the user's Claude Code login.
@@ -42,9 +43,28 @@ export function available(): boolean {
   return true; // Presence of the binary is only knowable by running it.
 }
 
+/**
+ * Claude Code has no command that lists models, but its aliases always resolve
+ * to the newest model of each family your plan can use, so this list never
+ * goes stale. "" leaves --model off and uses whatever Claude Code is set to.
+ */
+export function listModels(): ModelsResult {
+  const all = [...EFFORTS];
+  return {
+    source: "aliases",
+    models: [
+      { value: "", label: "Default — your Claude Code model", efforts: all },
+      { value: "fable", label: "Fable — most capable", efforts: all },
+      { value: "opus", label: "Opus — latest", efforts: all },
+      { value: "sonnet", label: "Sonnet — latest", efforts: all },
+      { value: "haiku", label: "Haiku — latest", efforts: all },
+    ],
+  };
+}
+
 export function translate(
   fields: PendingField[],
-  { from, to, model, signal }: TranslateOptions
+  { from, to, model, effort, signal }: TranslateOptions
 ): Promise<ProviderReply> {
   return new Promise((resolve, reject) => {
     const args = [
@@ -57,6 +77,7 @@ export function translate(
       "--allowedTools",
       "",
       ...(model ? ["--model", model] : []),
+      ...(effort ? ["--effort", effort] : []),
     ];
 
     const child = spawn(CLAUDE_BIN, args, {

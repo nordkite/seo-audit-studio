@@ -18,7 +18,7 @@ import {
   reportExists,
   skeleton,
 } from "./lib/store.ts";
-import { translateReport } from "./lib/translate/index.ts";
+import { listModels, translateReport } from "./lib/translate/index.ts";
 import { DEFAULT_MODEL } from "./lib/translate/anthropic.ts";
 import type { BrandDoc, Health } from "./lib/types.ts";
 
@@ -125,7 +125,7 @@ function serveStatic(res: ServerResponse, pathname: string) {
 async function translate(req: IncomingMessage, res: ServerResponse, slug: string, lang: string) {
   assertSlug(slug);
 
-  const { provider, apiKey, model, scope } = await readBody(req);
+  const { provider, apiKey, model, effort, scope } = await readBody(req);
 
   // The client hangs up if the user closes the dialog; stop the work with it.
   const controller = new AbortController();
@@ -135,6 +135,7 @@ async function translate(req: IncomingMessage, res: ServerResponse, slug: string
     provider,
     apiKey,
     model,
+    effort,
     scope,
     signal: controller.signal,
   });
@@ -199,6 +200,12 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
       hasEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
     };
     return json(res, 200, health);
+  }
+
+  // POST so the API key travels in the body, as it does for translate.
+  if (p === "/api/models" && req.method === "POST") {
+    const { provider = "cli", apiKey } = await readBody(req);
+    return json(res, 200, await listModels(provider, apiKey));
   }
 
   if (p === "/api/brand" && req.method === "GET") return json(res, 200, brandDoc());

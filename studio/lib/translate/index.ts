@@ -3,7 +3,15 @@ import { chunk, collect, reconcile, type TranslationProvider } from "./prompt.ts
 import * as anthropic from "./anthropic.ts";
 import * as cli from "./cli.ts";
 import type { Lang } from "../../../src/types.ts";
-import type { Provider, Scope, TranslateResult, Usage } from "../types.ts";
+import {
+  EFFORTS,
+  type Effort,
+  type ModelsResult,
+  type Provider,
+  type Scope,
+  type TranslateResult,
+  type Usage,
+} from "../types.ts";
 
 /**
  * Run a translation and write the result back into the report.
@@ -34,10 +42,18 @@ async function pooled<T, R>(batches: T[], limit: number, run: (batch: T, i: numb
   return results;
 }
 
+/** What the Model dropdown offers for a provider. */
+export async function listModels(provider: string, apiKey?: string): Promise<ModelsResult> {
+  if (provider === "api") return anthropic.listModels({ apiKey });
+  if (provider === "cli") return cli.listModels();
+  throw httpError(400, `Unknown translation provider: ${provider}`);
+}
+
 export interface TranslateRequest {
   provider?: string;
   apiKey?: string;
   model?: string;
+  effort?: string;
   scope?: Scope;
   signal?: AbortSignal;
 }
@@ -45,10 +61,11 @@ export interface TranslateRequest {
 export async function translateReport(
   slug: string,
   lang: Lang,
-  { provider = "cli", apiKey, model, scope = "stale", signal }: TranslateRequest = {}
+  { provider = "cli", apiKey, model, effort, scope = "stale", signal }: TranslateRequest = {}
 ): Promise<TranslateResult> {
   const impl = PROVIDERS[provider as Provider];
   if (!impl) throw httpError(400, `Unknown translation provider: ${provider}`);
+  if (effort && !EFFORTS.includes(effort as Effort)) throw httpError(400, `Unknown effort: ${effort}`);
 
   // Read from disk, not from the editor's buffer: the saved file is what the
   // PDF renders from, so it is what must end up translated.
@@ -61,9 +78,10 @@ export async function translateReport(
   const fields = collect(report, lang, { scope, status });
   if (!fields.length) return { doc, filled: 0, missing: [], unknown: [], batches: 0 };
 
+  const level = (effort || undefined) as Effort | undefined;
   const batches = chunk(fields);
   const replies = await pooled(batches, CONCURRENCY, (batch) =>
-    impl.translate(batch, { from, to: lang, apiKey, model, signal })
+    impl.translate(batch, { from, to: lang, apiKey, model, effort: level, signal })
   );
 
   const translations = Object.assign({}, ...replies.map((r) => r.translations));

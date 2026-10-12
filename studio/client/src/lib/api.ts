@@ -4,6 +4,8 @@ import type {
   Doc,
   Health,
   Lang,
+  ModelsResult,
+  Provider,
   Report,
   ReportSummary,
   TranslateResult,
@@ -51,6 +53,15 @@ export const api = {
     }).then((r) => unwrap<{ src: string }>(r)),
 
   health: () => fetch("/api/health").then((r) => unwrap<Health>(r)),
+
+  /** POST, not GET, so the API key stays out of the URL. */
+  models: (provider: Provider, apiKey: string, signal?: AbortSignal) =>
+    fetch("/api/models", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, apiKey }),
+      signal,
+    }).then((r) => unwrap<ModelsResult>(r)),
 
   /**
    * The API key travels in the body, not the URL — URLs end up in logs and

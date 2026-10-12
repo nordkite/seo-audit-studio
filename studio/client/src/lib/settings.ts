@@ -7,6 +7,10 @@ const DEFAULTS: TranslateSettings = {
   provider: "cli",
   apiKey: "",
   model: "",
+  // Translation is a constrained rewrite, not a reasoning problem: the rules
+  // are all in the system prompt. Low effort keeps latency and cost down
+  // without touching output quality.
+  effort: "low",
   scope: "stale",
 };
 
