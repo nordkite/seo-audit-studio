@@ -83,58 +83,99 @@ function scoreBand(score: number): Band {
   return "critical";
 }
 
+/** Score bands borrow the severity palette, so a 54 reads as the same amber as a warning. */
 function bandTone(band: Band): string {
-  return { excellent: "#4ec98a", good: "#8fd0a8", needsWork: "#e8b04b", critical: "#e2705f" }[band];
+  return {
+    excellent: "var(--pass)",
+    good: "var(--pass)",
+    needsWork: "var(--warning)",
+    critical: "var(--critical)",
+  }[band];
 }
 
-function scoreDial(score: number, band: Band): string {
-  const C = 2 * Math.PI * 45;
+/** Lucide geometry (24×24, stroked). Drawn inline: the PDF cannot load an icon font. */
+const ICON_PATHS = {
+  critical: `<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>`,
+  warning: `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>`,
+  opportunity: `<path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/>`,
+  pass: `<path d="M20 6 9 17l-5-5"/>`,
+  notCovered: `<circle cx="12" cy="12" r="10" stroke-dasharray="3.2 3.2"/><path d="M8 12h8"/>`,
+} as const;
+
+function icon(name: keyof typeof ICON_PATHS): string {
+  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+}
+
+function scoreDial(score: number, band: Band, s: Strings): string {
+  const C = 2 * Math.PI * 50;
   const filled = (Math.max(0, Math.min(100, score)) / 100) * C;
   return `
     <svg class="dial" viewBox="0 0 120 120" role="img" aria-label="${score}/100">
-      <circle class="dial__track" cx="60" cy="60" r="45"></circle>
-      <circle class="dial__value" cx="60" cy="60" r="45"
-              stroke="${bandTone(band)}"
+      <circle class="dial__track" cx="60" cy="60" r="50"></circle>
+      <circle class="dial__value" cx="60" cy="60" r="50"
+              style="stroke: ${bandTone(band)}"
               stroke-dasharray="${filled.toFixed(2)} ${(C - filled).toFixed(2)}"></circle>
-      <text class="dial__number" x="60" y="72">${score}</text>
+      <text class="dial__number" x="60" y="66">${score}</text>
+      <text class="dial__unit" x="60" y="82">${esc(s.score.outOf)}</text>
     </svg>`;
 }
 
-function findingCard(f: Finding, lang: Lang, sourceLang: Lang, s: Strings): string {
-  const isPass = f.severity === "pass";
-  const marker = isPass ? "✓" : "!";
-  const foot: string[] = [];
+/** Impact or effort as a three-step meter plus its word: low ▂, medium ▂▄, high ▂▄▆. */
+function level(label: string, value: string, word: string): string {
+  const on = { low: 1, medium: 2, high: 3 }[value] ?? 0;
+  const bars = [1, 2, 3].map((i) => `<i${i <= on ? ` class="on"` : ""}></i>`).join("");
+  return `
+        <span class="level">
+          <span class="level__k">${esc(label)}</span>
+          <span class="meter" aria-hidden="true">${bars}</span>
+          <span class="level__v">${esc(word)}</span>
+        </span>`;
+}
 
-  if (f.impact) {
-    foot.push(
-      `<span class="tag"><b>${esc(s.meta.impact)}</b> ${esc(s.meta[f.impact] ?? f.impact)}</span>`
-    );
-  }
-  if (f.effort) {
-    foot.push(
-      `<span class="tag"><b>${esc(s.meta.effort)}</b> ${esc(s.meta[f.effort] ?? f.effort)}</span>`
-    );
-  }
-  if (f.evidence) {
-    // Evidence is either a verbatim technical reference (URL, filename — plain
-    // string, never translated) or descriptive prose ("all pages" — an
-    // {en,et,ru} object). t() resolves both.
-    const ev = t(f.evidence, lang, sourceLang);
-    const verbatim = typeof f.evidence === "string";
-    foot.push(
-      `<span class="tag${verbatim ? " tag--evidence" : ""}"><b>${esc(s.meta.evidence)}</b> ${esc(ev)}</span>`
-    );
-  }
+function evidenceBlock(f: Finding, lang: Lang, sourceLang: Lang, s: Strings): string {
+  if (!f.evidence) return "";
+  // Evidence is either a verbatim technical reference (URL, filename — plain
+  // string, never translated) or descriptive prose ("all pages" — an
+  // {en,et,ru} object). t() resolves both.
+  const verbatim = typeof f.evidence === "string";
+  return `
+      <div class="evidence${verbatim ? " evidence--verbatim" : ""}">
+        <span class="evidence__k">${esc(s.meta.evidence)}</span>
+        <span class="evidence__v">${esc(t(f.evidence, lang, sourceLang))}</span>
+      </div>`;
+}
+
+function findingCard(f: Finding, lang: Lang, sourceLang: Lang, s: Strings): string {
+  const levels = [
+    f.impact ? level(s.meta.impact, f.impact, s.meta[f.impact] ?? f.impact) : "",
+    f.effort ? level(s.meta.effort, f.effort, s.meta[f.effort] ?? f.effort) : "",
+  ].join("");
+  const body = f.body ? t(f.body, lang, sourceLang) : "";
 
   return `
-    <article class="finding ${isPass ? "finding--pass " : ""}t-${f.severity}">
-      <div class="finding__head">
-        <span class="finding__marker">${marker}</span>
-        <h3>${esc(t(f.title, lang, sourceLang))}</h3>
+    <article class="finding t-${f.severity}">
+      <div class="finding__icon">${icon(f.severity)}</div>
+      <div class="finding__main">
+        <div class="finding__head">
+          <h3>${esc(t(f.title, lang, sourceLang))}</h3>
+          ${levels ? `<div class="levels">${levels}</div>` : ""}
+        </div>
+        ${body ? `<p class="finding__body">${esc(body)}</p>` : ""}
+        ${evidenceBlock(f, lang, sourceLang, s)}
       </div>
-      ${isPass ? "" : `<div class="finding__body">${esc(t(f.body, lang, sourceLang))}</div>`}
-      ${foot.length ? `<div class="finding__foot">${foot.join("")}</div>` : ""}
     </article>`;
+}
+
+/** A passing finding: one checklist row. Its body is never shown — nothing to act on. */
+function checkRow(f: Finding, lang: Lang, sourceLang: Lang, s: Strings): string {
+  return `
+      <li class="check t-pass">
+        <span class="check__icon">${icon("pass")}</span>
+        <div>
+          <h3>${esc(t(f.title, lang, sourceLang))}</h3>
+          ${evidenceBlock(f, lang, sourceLang, s)}
+        </div>
+      </li>`;
 }
 
 function severitySection(
@@ -148,14 +189,20 @@ function severitySection(
   const items = findings.filter((f) => f.severity === sev);
   if (!items.length) return "";
 
+  const list =
+    sev === "pass"
+      ? `<ul class="checks">${items.map((f) => checkRow(f, lang, sourceLang, s)).join("")}</ul>`
+      : items.map((f) => findingCard(f, lang, sourceLang, s)).join("");
+
   return `
     <section class="section${breakBefore ? " section--break" : ""}">
-      <div class="section__head">
+      <div class="section__head t-${sev}">
+        <span class="section__icon">${icon(sev)}</span>
         <h2>${esc(s.sections[sev])}</h2>
         <span class="section__count">${items.length} ${esc(s.counts[sev])}</span>
       </div>
       <p class="section__hint">${esc(s.sectionHints[sev])}</p>
-      ${items.map((f) => findingCard(f, lang, sourceLang, s)).join("")}
+      ${list}
     </section>`;
 }
 
@@ -201,18 +248,23 @@ function cwvRating(metric: CwvMetric, value: number): Rating {
   return "poor";
 }
 
-const RATING_TONE: Record<Rating, string> = {
-  good: "var(--pass)",
-  needsImprovement: "var(--warning)",
-  poor: "var(--critical)",
+/** A rating borrows the severity tone it reads as. */
+const RATING_TONE: Record<Rating, Severity> = {
+  good: "pass",
+  needsImprovement: "warning",
+  poor: "critical",
 };
 
-function metricCell(value: string, label: string, { tone, sub }: { tone?: string; sub?: string } = {}): string {
+function metricCell(
+  value: string,
+  label: string,
+  { tone, sub }: { tone?: Severity; sub?: string } = {}
+): string {
   return `
-      <div class="glance__cell"${tone ? ` style="--tone: ${tone}"` : ""}>
-        <div class="glance__n">${esc(value)}</div>
+      <div class="glance__cell${tone ? ` t-${tone}` : ""}">
         <div class="glance__label">${esc(label)}</div>
-        ${sub ? `<div class="glance__sub">${esc(sub)}</div>` : ""}
+        <div class="glance__n">${esc(value)}</div>
+        ${sub ? `<div class="glance__sub"><span class="dot"></span>${esc(sub)}</div>` : ""}
       </div>`;
 }
 
@@ -310,7 +362,17 @@ function coreWebVitalsSection(cwv: CoreWebVitalsMetrics, s: Strings, locale: str
     </section>`;
 }
 
-/** The brand colour goes in as a custom property; report.css derives its tints. */
+/** The brand's font first, then the stylesheet's system stack as fallback. */
+const SYSTEM_SANS = `"Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif`;
+
+function fontStack(brand: Brand): string {
+  return brand.font ? `"${brand.font.family}", ${SYSTEM_SANS}` : SYSTEM_SANS;
+}
+
+/**
+ * The brand colour and font go in as custom properties; report.css derives
+ * its tints from the one and sets every text style in the other.
+ */
 function shell(lang: Lang, title: string, body: string, brand: Brand): string {
   const css = readFileSync(join(ROOT, "templates", "report.css"), "utf8");
   return `<!doctype html>
@@ -318,8 +380,9 @@ function shell(lang: Lang, title: string, body: string, brand: Brand): string {
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
+${brand.font ? `<style>${brand.font.css}</style>` : ""}
 <style>${css}</style>
-<style>:root { --brand: ${brand.primary}; }</style>
+<style>:root { --brand: ${brand.primary}; --font-sans: ${fontStack(brand)}; }</style>
 </head>
 <body>${body}</body>
 </html>`;
@@ -341,27 +404,38 @@ export function renderCover(report: Report, lang: Lang): string {
 
   const counts = severityCounts(report);
   const band = scoreBand(m.score);
-  const countLine = SEVERITIES.filter((sev) => sev !== "pass")
-    .map((sev) => `${counts[sev]} ${s.counts[sev]}`)
-    .join(" · ");
+  const onBrand = brand.cover === "brand";
+
+  const countItems = SEVERITIES.map(
+    (sev) => `
+      <li class="t-${sev}">
+        <b>${counts[sev]}</b>
+        <span><i class="dot"></i>${esc(s.severity[sev])}</span>
+      </li>`
+  ).join("");
 
   return shell(
     lang,
     `${s.doc.kicker} — ${m.site}`,
     `
-<div class="cover">
-  <div class="cover__logo">${logo(brand, { onDark: true })}</div>
+<div class="cover${onBrand ? " cover--brand" : ""}">
+  <div class="cover__top">
+    <div class="cover__logo">${logo(brand, { onDark: onBrand })}</div>
+    <div class="cover__tag">${esc(formatDate(m.auditedAt, locale))}</div>
+  </div>
 
-  <div class="cover__kicker">${esc(s.doc.kicker)}</div>
-  <h1 class="cover__site">${esc(m.site)}</h1>
-  <div class="cover__client">${esc(m.clientName)}</div>
+  <div class="cover__title">
+    <div class="cover__kicker">${esc(s.doc.kicker)}</div>
+    <h1 class="cover__site">${esc(m.site)}</h1>
+    <div class="cover__client">${esc(m.clientName)}</div>
+  </div>
 
   <div class="cover__score">
-    ${scoreDial(m.score, band)}
+    ${scoreDial(m.score, band, s)}
     <div>
       <div class="cover__score-label">${esc(s.score.label)}</div>
       <div class="cover__score-band">${esc(s.score.bands[band])}</div>
-      <div class="cover__score-counts">${esc(countLine)}</div>
+      <ul class="cover__counts">${countItems}</ul>
     </div>
   </div>
 
@@ -386,7 +460,7 @@ export function renderCover(report: Report, lang: Lang): string {
     </div>
     ${
       m.stack
-        ? `<div style="grid-column: 1 / -1">
+        ? `<div class="wide">
              <dt>${esc(s.doc.stack)}</dt>
              <dd>${esc(m.stack)}</dd>
            </div>`
@@ -409,18 +483,24 @@ export function renderBody(report: Report, lang: Lang): string {
 
   const glance = SEVERITIES.map(
     (sev) => `
-      <div class="glance__cell t-${sev}" style="--tone: var(--${sev})">
+      <div class="glance__cell t-${sev}">
+        <div class="glance__label"><span class="dot"></span>${esc(s.severity[sev])}</div>
         <div class="glance__n">${counts[sev]}</div>
-        <div class="glance__label">${esc(s.severity[sev])}</div>
       </div>`
   ).join("");
+
+  const dist = SEVERITIES.filter((sev) => counts[sev] > 0)
+    .map((sev) => `<span class="t-${sev}" style="flex: ${counts[sev]}"></span>`)
+    .join("");
 
   const roadmap = (report.roadmap ?? [])
     .map(
       (step) => `
       <li>
-        <h3>${esc(t(step.title, lang, sourceLang))}</h3>
-        <p>${esc(t(step.body, lang, sourceLang))}</p>
+        <div>
+          <h3>${esc(t(step.title, lang, sourceLang))}</h3>
+          ${step.body ? `<p>${esc(t(step.body, lang, sourceLang))}</p>` : ""}
+        </div>
       </li>`
     )
     .join("");
@@ -429,8 +509,11 @@ export function renderBody(report: Report, lang: Lang): string {
     .map(
       (item) => `
       <li>
-        <h3>${esc(t(item.title, lang, sourceLang))}</h3>
-        <p>${esc(t(item.body, lang, sourceLang))}</p>
+        <span class="notcovered__icon">${icon("notCovered")}</span>
+        <div>
+          <h3>${esc(t(item.title, lang, sourceLang))}</h3>
+          ${item.body ? `<p>${esc(t(item.body, lang, sourceLang))}</p>` : ""}
+        </div>
       </li>`
     )
     .join("");
@@ -460,6 +543,7 @@ export function renderBody(report: Report, lang: Lang): string {
 
   <section class="section">
     <div class="section__head"><h2>${esc(s.sections.breakdown)}</h2></div>
+    ${dist ? `<div class="dist" aria-hidden="true">${dist}</div>` : ""}
     <div class="glance">${glance}</div>
     <div class="method">${esc(t(report.method, lang, sourceLang))}</div>
   </section>
@@ -520,16 +604,20 @@ export function runningTemplates(report: Report, lang: Lang): { header: string; 
   const s = loadStrings(lang);
   const brand = loadBrand();
   const m = report.meta;
-  const base = "font-family: Helvetica, Arial, sans-serif; font-size: 7pt; color: #8a909c;";
+  // These templates do not see the body page's fonts, so the brand font is
+  // inlined again into each. Data URIs are the one kind of resource they load.
+  const font = fontStack(brand).replace(/"/g, "'");
+  const fontCss = brand.font ? `<style>${brand.font.css}</style>` : "";
+  const base = `font-family: ${font}; font-size: 7pt; color: #676a73;`;
 
-  const header = `
+  const header = `${fontCss}
     <div style="${base} width: 100%; padding: 0 18mm; margin-top: 8mm;
                 display: flex; justify-content: space-between; align-items: center;">
-      <span style="color:${brand.primary}; font-weight: 700;">${esc(m.site)}</span>
+      <span style="color: #111318; font-weight: 600;">${esc(m.site)}</span>
       <span>${esc(s.doc.kicker)}</span>
     </div>`;
 
-  const footer = `
+  const footer = `${fontCss}
     <div style="${base} width: 100%; padding: 0 18mm; margin-bottom: 7mm;
                 display: flex; justify-content: space-between; align-items: center;">
       <span>${esc(brand.websiteLabel)}</span>

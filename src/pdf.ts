@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import puppeteer, { type Page } from "puppeteer";
 import { PDFDocument } from "pdf-lib";
 import { renderCover, renderBody, runningTemplates } from "./render.ts";
 import { loadBrand } from "./brand.ts";
@@ -27,6 +27,7 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
     const page = await browser.newPage();
 
     await page.setContent(renderCover(report, lang), { waitUntil: "load" });
+    await fontsReady(page);
     const coverPdf = await page.pdf({
       ...A4,
       printBackground: true,
@@ -35,6 +36,7 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
 
     const { header, footer } = runningTemplates(report, lang);
     await page.setContent(renderBody(report, lang), { waitUntil: "load" });
+    await fontsReady(page);
     const bodyPdf = await page.pdf({
       ...A4,
       printBackground: true,
@@ -49,6 +51,15 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * A brand webfont is decoded when text first asks for it, which can land after
+ * the load event. Printing before that silently sets the page in the fallback
+ * font.
+ */
+async function fontsReady(page: Page): Promise<void> {
+  await page.evaluate("document.fonts.ready.then(() => true)");
 }
 
 async function merge(parts: Uint8Array[], report: Report, lang: Lang): Promise<Buffer> {

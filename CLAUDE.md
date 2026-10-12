@@ -42,7 +42,9 @@ Whose name, logo and colour go on a report comes from `brand/brand.json`, loaded
 by `src/brand.ts`. `brand/` is git-ignored; `brand.example/` is the tracked
 template. Never hard-code a company name, URL, logo or brand colour in
 `src/`, `templates/` or the Studio. Add a field to `BrandConfig` instead, and
-document it in `brand.example/README.md`. The PDF's author/creator/producer
+document it in `brand.example/README.md`. The typeface is brand config too
+(`font`), so never hard-code a font family in `report.css`; it reads
+`--font-sans`. The PDF's author/creator/producer
 metadata is the brand name too, so the tool never shows through to a client.
 
 ## TypeScript
@@ -89,6 +91,7 @@ them. Run `npm run typecheck` after changing either.
 | `studio/client/` | Studio UI — React + Tailwind + shadcn/ui |
 | `components.json` | root-level **only** so `npx shadcn@latest add …` resolves; the CLI needs it beside `package.json` |
 | `tsconfig.json` | type-checks the Node side. Its `paths` entry is unused by that code and exists for the shadcn CLI. The Studio UI's config is `studio/client/tsconfig.json` |
+| `fonts/<name>/` | shared typefaces (`woff2` + `font.json`), picked by `brand.json`'s `font`. Guide: `fonts/README.md` |
 | `brand/` | the user's white-label config and logos. Git-ignored |
 | `brand.example/` | template for `brand/`, copied by `npm run setup` |
 | `scripts/doctor.ts`, `scripts/setup.ts` | environment check and setup. Node built-ins only, so they run before `npm install` |

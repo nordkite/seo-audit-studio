@@ -31,6 +31,30 @@ export interface BrandConfig {
   /** For the dark cover. Without it, `logo` is knocked out to white. */
   logoOnDark?: string;
   colors?: { primary?: string };
+  /**
+   * A folder name under `fonts/`: the brand folder's own `fonts/` first, then
+   * the shared library at the repo root. Without it, the system sans stack.
+   */
+  font?: string;
+  /** "light" (default): white cover. "brand": the cover is set on the primary colour. */
+  cover?: CoverStyle;
+}
+
+export const COVER_STYLES = ["light", "brand"] as const;
+export type CoverStyle = (typeof COVER_STYLES)[number];
+
+/** A typeface ready to inline: `@font-face` rules with the files as data URIs. */
+export interface BrandFont {
+  family: string;
+  css: string;
+}
+
+/** `fonts/<name>/font.json`. */
+interface FontManifest {
+  family: string;
+  license?: string;
+  source?: string;
+  faces: { file: string; weight?: string; style?: string; unicodeRange?: string }[];
 }
 
 /** What the renderer gets: resolved, validated, logo ready to embed. */
@@ -44,6 +68,8 @@ export interface Brand {
   logo: string | null;
   logoOnDark: string | null;
   primary: string;
+  font: BrandFont | null;
+  cover: CoverStyle;
   /** True when brand/ is missing and the example stands in for it. */
   isExample: boolean;
 }
@@ -85,6 +111,82 @@ function logoSrc(dir: string, ref: string, field: string, problems: string[]): s
   return `data:${mime};base64,${readFileSync(file).toString("base64")}`;
 }
 
+const FONT_TYPES: Record<string, { mime: string; format: string }> = {
+  woff2: { mime: "font/woff2", format: "woff2" },
+  woff: { mime: "font/woff", format: "woff" },
+  ttf: { mime: "font/ttf", format: "truetype" },
+  otf: { mime: "font/otf", format: "opentype" },
+};
+
+/**
+ * Font files are inlined for the same reason logos are: setContent() has no
+ * base URL, so a relative url() in @font-face would load nothing and Chrome
+ * would fall back to the next family without an error.
+ */
+function loadFont(brandDir: string, name: string, problems: string[]): BrandFont | null {
+  if (!/^[a-z0-9][a-z0-9_-]*$/i.test(name)) {
+    problems.push("`font` must be a folder name under fonts/, like \"manrope\"");
+    return null;
+  }
+  const dir = [join(brandDir, "fonts", name), join(ROOT, "fonts", name)].find((d) =>
+    existsSync(join(d, "font.json"))
+  );
+  if (!dir) {
+    problems.push(
+      `\`font\`: no fonts/${name}/font.json in ${brandDir} or ${ROOT}. See fonts/README.md`
+    );
+    return null;
+  }
+
+  const manifestFile = join(dir, "font.json");
+  let manifest: FontManifest;
+  try {
+    manifest = JSON.parse(readFileSync(manifestFile, "utf8"));
+  } catch (err) {
+    problems.push(`\`font\`: could not read ${manifestFile}: ${(err as Error).message}`);
+    return null;
+  }
+  if (typeof manifest.family !== "string" || !manifest.family.trim()) {
+    problems.push(`${manifestFile}: \`family\` is required`);
+    return null;
+  }
+  if (!Array.isArray(manifest.faces) || !manifest.faces.length) {
+    problems.push(`${manifestFile}: \`faces\` must list at least one font file`);
+    return null;
+  }
+
+  const family = manifest.family.trim().replace(/["\\]/g, "");
+  const rules: string[] = [];
+  for (const face of manifest.faces) {
+    const ext = face.file?.split(".").pop()?.toLowerCase() ?? "";
+    const type = FONT_TYPES[ext];
+    const file = resolve(dir, face.file ?? "");
+    if (!type) {
+      problems.push(`${manifestFile}: "${face.file}" is not ${Object.keys(FONT_TYPES).join(", ")}`);
+      continue;
+    }
+    if (!existsSync(file)) {
+      problems.push(`${manifestFile}: file not found: ${file}`);
+      continue;
+    }
+    const data = readFileSync(file).toString("base64");
+    rules.push(
+      [
+        "@font-face {",
+        `  font-family: "${family}";`,
+        `  font-style: ${face.style ?? "normal"};`,
+        `  font-weight: ${face.weight ?? "400"};`,
+        `  src: url(data:${type.mime};base64,${data}) format("${type.format}");`,
+        face.unicodeRange ? `  unicode-range: ${face.unicodeRange};` : "",
+        "}",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+  }
+  return { family, css: rules.join("\n") };
+}
+
 function hostOf(url: string): string {
   try {
     return new URL(url).host.replace(/^www\./, "");
@@ -116,6 +218,13 @@ export function loadBrand(): Brand {
   const logo = cfg.logo ? logoSrc(dir, cfg.logo, "logo", problems) : null;
   const logoOnDark = cfg.logoOnDark ? logoSrc(dir, cfg.logoOnDark, "logoOnDark", problems) : null;
 
+  const cover = cfg.cover ?? "light";
+  if (!COVER_STYLES.includes(cover)) {
+    problems.push(`\`cover\` must be one of ${COVER_STYLES.join(", ")}`);
+  }
+
+  const font = cfg.font ? loadFont(dir, cfg.font, problems) : null;
+
   if (problems.length) throw invalid(file, problems);
 
   const website = cfg.website?.trim() || null;
@@ -128,6 +237,8 @@ export function loadBrand(): Brand {
     logo,
     logoOnDark,
     primary,
+    font,
+    cover,
     isExample,
   };
 }

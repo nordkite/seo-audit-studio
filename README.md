@@ -41,9 +41,10 @@ creates it from the tracked template `brand.example/`:
 
 ```
 brand/
-  brand.json         name, website, email, phone, logo file names, primary colour
+  brand.json         name, website, email, phone, logo file names, colour, font
   logo.svg           for white pages
-  logo-on-dark.svg   for the cover (optional)
+  logo-on-dark.svg   for the brand-colour cover (optional)
+  fonts/             your own typefaces (optional, see fonts/README.md)
 ```
 
 ```json
@@ -54,13 +55,16 @@ brand/
   "phone": "+372 555 0100",
   "logo": "logo.svg",
   "logoOnDark": "logo-on-dark.svg",
-  "colors": { "primary": "#1f3a5f" }
+  "colors": { "primary": "#1f3a5f" },
+  "font": "manrope",
+  "cover": "light"
 }
 ```
 
 Only `name` is required. A logo is a file in `brand/` or an `https://` URL, and
-can be SVG, PNG, JPG, WebP or GIF. The primary colour fills the cover and draws
-headings and rules; its lighter tints are derived from it. The PDF's author,
+can be SVG, PNG, JPG, WebP or GIF. The primary colour is the accent (and fills the
+cover when `cover` is `"brand"`); its lighter tints are derived from it. `font`
+picks a typeface from `fonts/`. The PDF's author,
 creator and producer metadata are set to `name`, so nothing in the file names
 this tool. Every field is described in
 [brand.example/README.md](brand.example/README.md).
@@ -282,6 +286,13 @@ folio'd.
 - Header/footer templates render in an isolated context: no page CSS, no external
   assets, default font-size ~0. Everything in `runningTemplates()` is inlined, and
   the `page.pdf()` margins exceed the template heights or they clip.
+- The header/footer templates do not see the page's `@font-face` rules either,
+  so `runningTemplates()` inlines the brand font into them a second time
+- `pdf.ts` waits for `document.fonts.ready` before printing. A webfont is decoded
+  when text first needs it, which can be after `load`, and printing earlier sets
+  the page in the fallback font without any error
+- Fonts are static weights, not variable: Chrome embeds a variable font as Type 3
+  outlines, which bloats the PDF
 - A4, not Letter
 
 ## Adding a language
@@ -291,19 +302,19 @@ folio'd.
    report chrome, translated once and reused by every report forever
 3. Run `/translate-report <slug> <code>` per report to fill in the findings
 
-Cyrillic and Estonian diacritics both render correctly in the current
-Helvetica/Arial stack. A language needing other scripts (Greek, CJK) will need an
-embedded webfont — see below.
+Check the brand font covers the new language's script (see Fonts below). A font
+without it falls back to Arial for those letters.
 
 ## Fonts
 
-The stylesheet uses a system stack (`Helvetica Neue`/Arial). It covers Latin
-Extended and Cyrillic, needs no network access, and embeds cleanly.
+`"font": "manrope"` in `brand.json` sets the report in Manrope, shipped in
+`fonts/manrope/`. Without `font`, it falls back to the system stack (`Helvetica
+Neue`/Arial). Adding another typeface is a folder of `woff2` files and a
+`font.json`: see [fonts/README.md](fonts/README.md).
 
-To upgrade to a brand typeface, drop a subsetted `woff2` into `brand/`, base64 it
-into an `@font-face` inside `templates/report.css`, and set `--font-sans`. It must
-be inlined as a data URI — the renderer loads HTML via `setContent`, so there is no
-base URL for relative font paths to resolve against.
+`src/brand.ts` inlines every font file as a data URI. The renderer loads HTML
+via `setContent`, so there is no base URL for a relative `url()` to resolve
+against.
 
 ## Verifying layout changes
 
