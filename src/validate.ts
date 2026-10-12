@@ -1,5 +1,5 @@
 import { basename } from "node:path";
-import { ANCHORS, SEVERITIES, type Anchor, type Report, type Severity } from "./types.ts";
+import { ANCHORS, SCOPES, SEVERITIES, type Anchor, type Report, type Severity } from "./types.ts";
 
 /**
  * Throws if the report cannot be rendered.
@@ -20,6 +20,11 @@ export function validate(report: Report, path: string): void {
     if (score !== undefined && (typeof score !== "number" || score < 0 || score > 100)) {
       problems.push("`meta.score` must be a number 0–100");
     }
+    const { scope, pageUrl } = report.meta;
+    if (scope !== undefined && !(SCOPES as readonly string[]).includes(scope)) {
+      problems.push(`\`meta.scope\` must be one of ${SCOPES.join(", ")}`);
+    }
+    if (scope === "page" && !pageUrl) problems.push("`meta.pageUrl` is required when `meta.scope` is \"page\"");
   }
   if (!Array.isArray(report.findings) || !report.findings.length) {
     problems.push("`findings` must be a non-empty array");

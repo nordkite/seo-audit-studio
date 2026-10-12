@@ -12,8 +12,11 @@ export const SEVERITIES = ["critical", "warning", "opportunity", "pass"] as cons
 /** Where a custom section may be slotted into the body flow. */
 export const ANCHORS = ["summary", "breakdown", "findings", "roadmap", "notCovered"] as const;
 export const LEVELS = ["high", "medium", "low"] as const;
+/** What was audited: a whole site (`/new-audit`) or one URL (`/new-page-audit`). */
+export const SCOPES = ["site", "page"] as const;
 
 export type Lang = (typeof LANGS)[number];
+export type AuditScope = (typeof SCOPES)[number];
 export type Severity = (typeof SEVERITIES)[number];
 export type Anchor = (typeof ANCHORS)[number];
 export type Level = (typeof LEVELS)[number];
@@ -51,6 +54,10 @@ export interface Meta {
   slug: string;
   site: string;
   siteUrl?: string;
+  /** Defaults to "site". A "page" report must also set `pageUrl`. */
+  scope?: AuditScope;
+  /** The one URL a page-scope report covers. */
+  pageUrl?: string;
   clientName: string;
   auditedAt: string;
   pagesAnalyzed: number;

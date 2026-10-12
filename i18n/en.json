@@ -3,10 +3,12 @@
   "langName": "English",
   "doc": {
     "kicker": "SEO Audit Report",
+    "kickerPage": "SEO Page Audit",
     "preparedFor": "Prepared for",
     "preparedBy": "Prepared by",
     "auditedOn": "Audit date",
     "pagesAnalyzed": "Pages analysed",
+    "auditedPage": "Audited page",
     "stack": "Stack",
     "contents": "Contents",
     "page": "Page",

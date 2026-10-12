@@ -30,9 +30,12 @@ apart is what lets claude-seo update without touching anything here.
    do not generate claude-seo's own PDF, and do not offer `/seo google report`;
    this repo's renderer produces the report.
 
-   Then use the claude-seo sub-skills it suggests for depth where the site
-   needs it (`seo-technical`, `seo-schema`, `seo-content`, `seo-local` for a
-   local business, `seo-hreflang` for a multilingual site).
+   The audit already delegates to `seo-technical`, `seo-content`,
+   `seo-schema`, `seo-sitemap` and the rest of its subagents, plus `seo-local`
+   when it detects a local business. Do not run those again: it repeats the
+   same checks and only produces duplicate findings to merge. The one gap is
+   **`seo-hreflang`**, which the full audit never runs. If the site serves more
+   than one language or region, run it as well.
 
    Then run `npm run --silent check-social -- <url> --json`. It checks Open
    Graph and X/Twitter Card tags on every sitemap URL, fetched as Twitterbot,
@@ -91,6 +94,7 @@ apart is what lets claude-seo update without touching anything here.
     "slug": "naa-ee",              // kebab-case, becomes the filename
     "site": "naa.ee",              // shown large on the cover
     "siteUrl": "https://naa.ee/",
+    // "scope": "page", "pageUrl": "…"  — only for /new-page-audit; omit here
     "clientName": "Nordic Aviation Academy",
     "auditedAt": "2026-07-31",     // ISO date
     "pagesAnalyzed": 17,

@@ -3,10 +3,12 @@
   "langName": "Eesti",
   "doc": {
     "kicker": "SEO auditi aruanne",
+    "kickerPage": "Lehe SEO audit",
     "preparedFor": "Koostatud kliendile",
     "preparedBy": "Koostaja",
     "auditedOn": "Auditi kuupäev",
     "pagesAnalyzed": "Analüüsitud lehti",
+    "auditedPage": "Auditeeritud leht",
     "stack": "Tehnoloogia",
     "contents": "Sisukord",
     "page": "Lk",

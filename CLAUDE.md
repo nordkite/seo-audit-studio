@@ -31,7 +31,8 @@ verified against.
 checks `twitter:image`. Its `seo-page` checklist stops at card, title and
 description, and the full audit has no social check at all. Without
 `twitter:image`, X shows shared links with no picture even when `og:image` is
-set. `/new-audit` runs the script after the claude-seo audit. It is a
+set. `/new-audit` runs the script after the claude-seo audit, and
+`/new-page-audit` runs it with `--page` on the one URL. It is a
 deterministic script rather than a skill, so it does not compete with
 claude-seo for prompts. Delete it, and its step in `/new-audit`, once claude-seo
 checks these tags itself.
@@ -68,6 +69,8 @@ them. Run `npm run typecheck` after changing either.
 
 - `npm run setup` / `npm run doctor`: install and check the environment
 - `/new-audit <url>` — audit a site with claude-seo, write `reports/<slug>.json`
+- `/new-page-audit <url>` — audit one page with claude-seo's `seo-page`, write
+  `reports/<site-slug>--<page-slug>.json` (`meta.scope: "page"`)
 - `/translate-report <slug> all` — fill `et`/`ru`, cached into the same file
 - `/seo-report <slug> --all` — render PDFs to `out/`
 - `npm run studio` — Report Studio, a local editor for the same JSON

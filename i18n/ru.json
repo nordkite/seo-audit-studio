@@ -3,10 +3,12 @@
   "langName": "Русский",
   "doc": {
     "kicker": "Отчёт SEO-аудита",
+    "kickerPage": "SEO-аудит страницы",
     "preparedFor": "Подготовлено для",
     "preparedBy": "Исполнитель",
     "auditedOn": "Дата аудита",
     "pagesAnalyzed": "Проанализировано страниц",
+    "auditedPage": "Проверенная страница",
     "stack": "Технологии",
     "contents": "Содержание",
     "page": "Стр.",

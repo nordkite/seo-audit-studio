@@ -73,8 +73,9 @@ async function merge(parts: Uint8Array[], report: Report, lang: Lang): Promise<B
   // White-label all the way down: a client opening Document Properties sees
   // the brand, not the tool that made the file.
   const { name } = loadBrand();
-  const { site, clientName, auditedAt } = report.meta;
-  out.setTitle(`SEO Audit — ${site} (${lang.toUpperCase()})`);
+  const { site, clientName, auditedAt, scope, pageUrl } = report.meta;
+  const target = scope === "page" && pageUrl ? pageUrl : site;
+  out.setTitle(`SEO ${scope === "page" ? "Page Audit" : "Audit"} — ${target} (${lang.toUpperCase()})`);
   out.setAuthor(name);
   out.setCreator(name);
   out.setProducer(name);

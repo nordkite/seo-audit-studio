@@ -5,6 +5,8 @@
  *
  *   npm run check-social -- https://example.com            human-readable
  *   npm run check-social -- https://example.com --json     used by /new-audit
+ *   npm run check-social -- https://example.com/page --page --json
+ *                                       that URL only, used by /new-page-audit
  *
  * Why this exists: claude-seo 2.4.2 does not check twitter:image (its seo-page
  * checklist stops at card/title/description, and the full audit has no social
@@ -182,9 +184,10 @@ async function checkImage(url: string): Promise<ImageCheck> {
   }
 }
 
-export async function checkSocial(siteUrl: string): Promise<SocialResult> {
+/** `pageOnly` checks just `siteUrl` instead of every sitemap URL. */
+export async function checkSocial(siteUrl: string, pageOnly = false): Promise<SocialResult> {
   const origin = new URL(siteUrl).origin;
-  const urls = await sitemapUrls(origin);
+  const urls = pageOnly ? [] : await sitemapUrls(origin);
   if (!urls.length) urls.push(new URL(siteUrl).href);
 
   const pages = await pool(urls, checkPage);
@@ -240,13 +243,14 @@ export async function checkSocial(siteUrl: string): Promise<SocialResult> {
 async function main() {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
+  const pageOnly = args.includes("--page");
   const site = args.find((a) => !a.startsWith("--"));
   if (!site) {
-    console.error("usage: npm run check-social -- <site-url> [--json]");
+    console.error("usage: npm run check-social -- <url> [--page] [--json]");
     process.exit(2);
   }
 
-  const result = await checkSocial(site);
+  const result = await checkSocial(site, pageOnly);
 
   if (json) {
     console.log(JSON.stringify(result, null, 2));

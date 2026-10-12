@@ -54,6 +54,11 @@ function brandLink(brand: Brand): string {
     : esc(brand.name);
 }
 
+/** "SEO Audit Report", or "SEO Page Audit" when the report covers one URL. */
+function kicker(report: Report, s: Strings): string {
+  return report.meta.scope === "page" ? s.doc.kickerPage : s.doc.kicker;
+}
+
 /**
  * Inline an image as a data URI.
  *
@@ -438,7 +443,7 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
 
   return shell(
     lang,
-    `${s.doc.kicker} — ${m.site}`,
+    `${kicker(report, s)} — ${m.site}`,
     `
 <div class="cover">
   <div class="cover__top">
@@ -447,7 +452,7 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
   </div>
 
   <div class="cover__title">
-    <div class="cover__kicker">${esc(s.doc.kicker)}</div>
+    <div class="cover__kicker">${esc(kicker(report, s))}</div>
     <h1 class="cover__site">${esc(m.site)}</h1>
     <div class="cover__client">${esc(m.clientName)}</div>
   </div>
@@ -476,10 +481,17 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
       <dt>${esc(s.doc.auditedOn)}</dt>
       <dd>${esc(formatDate(m.auditedAt, locale))}</dd>
     </div>
-    <div>
-      <dt>${esc(s.doc.pagesAnalyzed)}</dt>
-      <dd>${esc(formatNumber(m.pagesAnalyzed, locale))}</dd>
-    </div>
+    ${
+      m.scope === "page" && m.pageUrl
+        ? `<div class="wide">
+             <dt>${esc(s.doc.auditedPage)}</dt>
+             <dd>${esc(m.pageUrl)}</dd>
+           </div>`
+        : `<div>
+             <dt>${esc(s.doc.pagesAnalyzed)}</dt>
+             <dd>${esc(formatNumber(m.pagesAnalyzed, locale))}</dd>
+           </div>`
+    }
     ${
       m.stack
         ? `<div class="wide">
@@ -552,7 +564,7 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
 
   return shell(
     lang,
-    `${s.doc.kicker} — ${m.site}`,
+    `${kicker(report, s)} — ${m.site}`,
     `
 <main class="sheet">
 
@@ -663,7 +675,7 @@ export function runningTemplates(
     <div style="${base} position: relative; width: 100%; padding: 0 18mm; margin-top: 8mm;
                 display: flex; justify-content: space-between; align-items: center;">
       <span style="color: ${text}; font-weight: 600;">${esc(m.site)}</span>
-      <span>${esc(s.doc.kicker)}</span>
+      <span>${esc(kicker(report, s))}</span>
     </div>`;
 
   const footer = `${fontCss}${paint("bottom")}
