@@ -25,6 +25,15 @@ runtime is missing, rather than quietly running a weaker audit.
 `config.claudeSeoVersion` in `package.json` is the release reports were last
 verified against.
 
+**One deliberate exception: `scripts/check-social.js`.** claude-seo 2.4.2 never
+checks `twitter:image`. Its `seo-page` checklist stops at card, title and
+description, and the full audit has no social check at all. Without
+`twitter:image`, X shows shared links with no picture even when `og:image` is
+set. `/new-audit` runs the script after the claude-seo audit. It is a
+deterministic script rather than a skill, so it does not compete with
+claude-seo for prompts. Delete it, and its step in `/new-audit`, once claude-seo
+checks these tags itself.
+
 ## Commands
 
 - `npm run setup` / `npm run doctor`: install and check the environment
@@ -53,6 +62,7 @@ verified against.
 | `components.json`, `tsconfig.json` | root-level **only** so `npx shadcn@latest add …` resolves; the CLI needs them beside `package.json`. The app's real config is `studio/client/tsconfig.json`. |
 | `brand/` | logo, recoloured per surface at render time |
 | `scripts/doctor.js`, `scripts/setup.js` | environment check and setup. Node built-ins only, so they run before `npm install` |
+| `scripts/check-social.js` | Open Graph + X/Twitter Card check on every sitemap URL. Fills a claude-seo gap (see above) |
 | `.claude/settings.json` | declares the claude-seo plugin for this project |
 
 `metrics` in the report JSON (Search Console, Core Web Vitals) is numbers only and

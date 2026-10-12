@@ -15,6 +15,7 @@
     "studio:build": "vite build --config studio/client/vite.config.ts",
     "studio:check": "tsc -p studio/client/tsconfig.json --noEmit",
     "doctor": "node scripts/doctor.js",
+    "check-social": "node scripts/check-social.js",
     "setup": "node scripts/setup.js"
   },
   "config": {

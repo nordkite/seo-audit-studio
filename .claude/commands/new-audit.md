@@ -34,6 +34,14 @@ apart is what lets claude-seo update without touching anything here.
    needs it (`seo-technical`, `seo-schema`, `seo-content`, `seo-local` for a
    local business, `seo-hreflang` for a multilingual site).
 
+   Then run `npm run --silent check-social -- <url> --json`. It checks Open
+   Graph and X/Twitter Card tags on every sitemap URL, fetched as Twitterbot,
+   and covers a gap in claude-seo 2.4.2, which never checks `twitter:image`.
+   Without that tag X shows shared links with no picture. Each entry in
+   `issues` lists the affected URLs. Merge them into one social-tags finding, an
+   `opportunity` unless share images are broken. Use the script's results over
+   any subagent claim about these tags. If `issues` is empty, add a `pass`.
+
 2. **Collect measured data** for `metrics`. Only when the Google APIs check
    passed. Use claude-seo's `seo-google` skill:
 

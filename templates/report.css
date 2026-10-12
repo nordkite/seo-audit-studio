@@ -422,6 +422,13 @@ code,
   padding: 3mm 5mm;
 }
 
+/* A pass card is title-only, so its h3 is the last child and h3's
+   break-after: avoid would propagate to the card itself — chaining every
+   pass card into one unbreakable block that gets pushed to a fresh page. */
+.finding--pass h3 {
+  break-after: auto;
+}
+
 .finding__head {
   display: flex;
   align-items: flex-start;
@@ -472,6 +479,10 @@ code,
   letter-spacing: 0.05em;
   text-transform: uppercase;
   font-size: 7.4pt;
+  /* The label sits beside long, break-all evidence — never squeeze or split it. */
+  flex-shrink: 0;
+  white-space: nowrap;
+  word-break: normal;
 }
 
 .tag--evidence {
