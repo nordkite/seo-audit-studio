@@ -1,9 +1,11 @@
-import { FileDown, Languages, Plus, Save, Settings } from "lucide-react";
+import { CheckCircle2, FileDown, Languages, Loader2, Plus, Save, Settings, XCircle } from "lucide-react";
+import { useTick } from "@/components/AuditDialog";
+import { elapsed, hostOf } from "@/lib/audits";
 import { Button } from "@/components/ui/button";
 import { ReportPicker } from "@/components/ReportPicker";
 import { Separator } from "@/components/ui/separator";
 import { ModeToggle } from "@/components/mode-toggle";
-import type { Doc, Lang, ReportSummary } from "@/lib/types";
+import type { AuditJob, Doc, Lang, ReportSummary } from "@/lib/types";
 import { LANG_LABEL } from "@/lib/report";
 
 interface Props {
@@ -15,11 +17,35 @@ interface Props {
   busy: boolean;
   onPick: (slug: string) => void;
   onHome: () => void;
+  /** A report for any site. */
   onNew: () => void;
+  /** Another report for the open report's site. */
+  onNewForSite: () => void;
   onSave: () => void;
   onTranslate: (lang: Lang) => void;
   onRender: () => void;
   onSettings: () => void;
+  /** The running audit, or the last one until its result has been looked at. */
+  audit: AuditJob | null;
+  onAudit: () => void;
+}
+
+function AuditPill({ job, onClick }: { job: AuditJob; onClick: () => void }) {
+  const running = job.status === "running";
+  useTick(running);
+  return (
+    <Button size="sm" variant="outline" onClick={onClick} className="h-7 gap-1.5 text-xs" title="Show audit progress">
+      {running ? (
+        <Loader2 className="size-3.5 animate-spin" />
+      ) : job.status === "done" ? (
+        <CheckCircle2 className="size-3.5 text-sev-pass" />
+      ) : (
+        <XCircle className="size-3.5 text-sev-critical" />
+      )}
+      {running ? "Auditing" : job.status === "done" ? "Audited" : "Audit stopped"} {hostOf(job.url)}
+      <span className="font-mono text-muted-foreground tabular-nums">{elapsed(job)}</span>
+    </Button>
+  );
 }
 
 export function Topbar({
@@ -32,10 +58,13 @@ export function Topbar({
   onPick,
   onHome,
   onNew,
+  onNewForSite,
   onSave,
   onTranslate,
   onRender,
   onSettings,
+  audit,
+  onAudit,
 }: Props) {
   const source = doc?.report.meta.sourceLang ?? "en";
 
@@ -56,13 +85,20 @@ export function Topbar({
 
           <ReportPicker reports={reports} slug={slug} onPick={onPick} />
 
-          <Button variant="ghost" size="sm" onClick={onNew}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onNewForSite}
+            title={`New report for ${doc.report.meta.site}`}
+          >
             <Plus className="size-3.5" /> New
           </Button>
         </>
       )}
 
       <div className="ml-auto flex items-center gap-2">
+        {audit && <AuditPill job={audit} onClick={onAudit} />}
+
         {doc && (
           <>
             {dirty && <span className="text-xs text-muted-foreground">unsaved changes</span>}
@@ -92,6 +128,10 @@ export function Topbar({
             <Separator orientation="vertical" className="h-5" />
           </>
         )}
+
+        <Button size="sm" variant="ghost" onClick={onNew}>
+          <Plus className="size-3.5" /> New report
+        </Button>
 
         <Button
           variant="ghost"

@@ -19,6 +19,7 @@ import {
   skeleton,
 } from "./lib/store.ts";
 import { listModels, translateReport } from "./lib/translate/index.ts";
+import { cancelAudit, killChild, listJobs, preflight, startAudit } from "./lib/audit.ts";
 import { DEFAULT_MODEL } from "./lib/translate/anthropic.ts";
 import type { BrandDoc, Health } from "./lib/types.ts";
 
@@ -227,6 +228,15 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
     return json(res, 201, writeReport(slug, skeleton({ slug, site, clientName, siteUrl })));
   }
 
+  if (p === "/api/audits/preflight" && req.method === "GET") return json(res, 200, await preflight());
+  if (p === "/api/audits" && req.method === "GET") return json(res, 200, { jobs: listJobs() });
+  if (p === "/api/audits" && req.method === "POST") {
+    return json(res, 202, await startAudit(await readBody(req)));
+  }
+  if (seg[0] === "api" && seg[1] === "audits" && seg[2] && req.method === "DELETE") {
+    return json(res, 200, cancelAudit(seg[2]));
+  }
+
   if (seg[0] === "api" && seg[1] === "report" && seg[2]) {
     const slug = assertSlug(seg[2]);
     if (req.method === "GET") return json(res, 200, readReport(slug));
@@ -312,6 +322,15 @@ function run(cmd: string, args: string[]): Promise<{ code: number | null; stdout
 }
 
 /* ---------------------------------------------------------------- listen -- */
+
+// A running audit sits in its own process group so Cancel can stop all of it,
+// which also means Ctrl+C here would not reach it. Take it down on the way out.
+for (const sig of ["SIGINT", "SIGTERM"] as const) {
+  process.on(sig, () => {
+    killChild();
+    process.exit(0);
+  });
+}
 
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);

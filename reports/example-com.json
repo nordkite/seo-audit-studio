@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "slug": "example-com",
+    "site": "example.com",
+    "siteUrl": "https://example.com/",
+    "clientName": "test",
+    "auditedAt": "2026-10-12",
+    "pagesAnalyzed": 0,
+    "score": 50,
+    "sourceLang": "en",
+    "translatedAt": {}
+  },
+  "summary": {
+    "en": ""
+  },
+  "method": {
+    "en": ""
+  },
+  "findings": [
+    {
+      "id": "placeholder",
+      "severity": "critical",
+      "impact": "high",
+      "effort": "low",
+      "title": {
+        "en": "Replace this placeholder finding"
+      },
+      "body": {
+        "en": ""
+      }
+    }
+  ],
+  "roadmap": [],
+  "notCovered": [],
+  "sections": [],
+  "_translationState": {
+    "findings.placeholder.title": "2547a0094f41"
+  }
+}

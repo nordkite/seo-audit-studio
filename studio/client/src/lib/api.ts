@@ -1,10 +1,13 @@
 import type {
+  AuditJob,
+  AuditRequest,
   BrandDoc,
   BrandTheme,
   Doc,
   Health,
   Lang,
   ModelsResult,
+  Preflight,
   Provider,
   Report,
   ReportSummary,
@@ -80,6 +83,15 @@ export const api = {
     post(`/api/render/${slug}`, { langs }).then((r) =>
       unwrap<{ code: number; stdout: string; stderr: string }>(r)
     ),
+
+  preflight: () => fetch("/api/audits/preflight").then((r) => unwrap<Preflight>(r)),
+
+  audits: () => fetch("/api/audits").then((r) => unwrap<{ jobs: AuditJob[] }>(r)),
+
+  startAudit: (body: AuditRequest) => post("/api/audits", body).then((r) => unwrap<AuditJob>(r)),
+
+  cancelAudit: (id: string) =>
+    fetch(`/api/audits/${id}`, { method: "DELETE" }).then((r) => unwrap<AuditJob>(r)),
 
   brand: () => fetch("/api/brand").then((r) => unwrap<BrandDoc>(r)),
 

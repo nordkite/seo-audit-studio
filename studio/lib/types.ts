@@ -98,3 +98,60 @@ export interface BrandDoc {
   /** Where saving writes, for the editor to show. */
   file: string;
 }
+
+/* ---------------------------------------------------------------- audits -- */
+
+/** One check from `npm run doctor -- --json`. */
+export interface DoctorCheck {
+  name: string;
+  required: boolean;
+  ok: boolean;
+  warn?: boolean;
+  detail?: string;
+  fix?: string;
+}
+
+/** GET /api/audits/preflight. An audit is refused while `ok` is false. */
+export interface Preflight {
+  ok: boolean;
+  checks: DoctorCheck[];
+}
+
+export interface AuditRequest {
+  url: string;
+  scope: AuditScope;
+  clientName?: string;
+}
+
+export type AuditStatus = "running" | "done" | "failed" | "cancelled";
+
+/** One line of progress, read off the agent's tool calls. */
+export interface AuditStep {
+  at: number;
+  text: string;
+  /** Inside a subagent rather than the main run. */
+  nested?: boolean;
+}
+
+/** Whether the machine was kept awake for the run, and how. */
+export interface KeepAwake {
+  ok: boolean;
+  method: string;
+  detail?: string;
+}
+
+export interface AuditJob extends AuditRequest {
+  id: string;
+  status: AuditStatus;
+  startedAt: number;
+  endedAt?: number;
+  steps: AuditStep[];
+  keepAwake: KeepAwake | null;
+  /** The report the run wrote, once it has finished. */
+  slug?: string;
+  /** Why it failed, or the agent's closing message when it did not. */
+  message?: string;
+  /** Raw stream-json log, relative to the repo root. */
+  log: string;
+  costUsd?: number;
+}

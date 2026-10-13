@@ -1,18 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Topbar } from "@/components/Topbar";
 import { Home } from "@/components/Home";
+import { NewReportDialog, type NewReportPrefill } from "@/components/NewReportDialog";
+import { AuditDialog } from "@/components/AuditDialog";
 import { MetaPanel } from "@/components/MetaPanel";
 import { FindingsBoard } from "@/components/FindingsBoard";
 import { ListPanel } from "@/components/ListPanel";
@@ -23,9 +15,10 @@ import { TranslateDialog } from "@/components/TranslateDialog";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { I18nField } from "@/components/I18nField";
 import { api } from "@/lib/api";
-import { LANG_LABEL, counts, edit, paths, slugify } from "@/lib/report";
+import { LANG_LABEL, counts, edit, paths } from "@/lib/report";
+import { hostOf, useAudits } from "@/lib/audits";
 import { useTranslateSettings } from "@/lib/settings";
-import type { Doc, FieldStatus, Health, Lang, Report, ReportSummary } from "@/lib/types";
+import type { AuditJob, Doc, FieldStatus, Health, Lang, Report, ReportSummary } from "@/lib/types";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -48,6 +41,11 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [translating, setTranslating] = useState<Lang | null>(null);
   const [creating, setCreating] = useState(false);
+  const [prefill, setPrefill] = useState<NewReportPrefill | undefined>();
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditId, setAuditId] = useState<string | null>(null);
+  // The finished audit whose result has been seen, so its pill can go away.
+  const [dismissed, setDismissed] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [health, setHealth] = useState<Health | null>(null);
   const [settings, updateSettings] = useTranslateSettings();
@@ -84,6 +82,11 @@ export default function App() {
     }
   }, []);
 
+  const refreshList = useCallback(
+    () => api.list().then((r) => setReports(r.reports)).catch(() => {}),
+    []
+  );
+
   const goHome = useCallback(() => {
     if (!doc) return;
     if (dirty && !window.confirm("Discard unsaved changes and go back to all reports?")) return;
@@ -92,8 +95,42 @@ export default function App() {
     setDirty(false);
     setTouched(new Set());
     // Scores and translations may have changed while the report was open.
-    api.list().then((r) => setReports(r.reports)).catch(() => {});
-  }, [doc, dirty]);
+    refreshList();
+  }, [doc, dirty, refreshList]);
+
+  const audits = useAudits((job) => {
+    refreshList();
+    const host = hostOf(job.url);
+    if (job.status === "done") toast.success(`Audit of ${host} finished`, { description: `reports/${job.slug}.json` });
+    else if (job.status === "failed") toast.error(`Audit of ${host} failed`);
+  });
+
+  const shownAudit = audits.jobs.find((j) => j.id === auditId) ?? audits.latest;
+  const pillAudit =
+    audits.active ?? (audits.latest && audits.latest.id !== dismissed ? audits.latest : null);
+
+  const showAudit = useCallback((job: AuditJob) => {
+    setAuditId(job.id);
+    setAuditOpen(true);
+  }, []);
+
+  const closeAudit = useCallback(() => {
+    setAuditOpen(false);
+    if (shownAudit && shownAudit.status !== "running") setDismissed(shownAudit.id);
+  }, [shownAudit]);
+
+  const openNew = useCallback(() => {
+    setPrefill(undefined);
+    setCreating(true);
+  }, []);
+
+  /** Another audit of the open report's site, usually a single page of it. */
+  const openNewForSite = useCallback(() => {
+    const meta = doc?.report.meta;
+    if (!meta) return;
+    setPrefill({ url: meta.siteUrl ?? `https://${meta.site}/`, clientName: meta.clientName });
+    setCreating(true);
+  }, [doc]);
 
   const update = useCallback(
     (mutate: (draft: Report) => void, touchedPath?: string) => {
@@ -200,11 +237,14 @@ export default function App() {
         busy={busy || translating !== null}
         onPick={load}
         onHome={goHome}
-        onNew={() => setCreating(true)}
+        onNew={openNew}
+        onNewForSite={openNewForSite}
         onSave={save}
         onTranslate={translate}
         onRender={render}
         onSettings={() => setSettingsOpen(true)}
+        audit={pillAudit}
+        onAudit={() => pillAudit && showAudit(pillAudit)}
       />
 
       {!doc ? (
@@ -212,7 +252,7 @@ export default function App() {
           reports={reports}
           loading={listing || busy}
           onPick={load}
-          onNew={() => setCreating(true)}
+          onNew={openNew}
         />
       ) : (
         <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
@@ -366,83 +406,45 @@ export default function App() {
 
       <NewReportDialog
         open={creating}
+        prefill={prefill}
+        auditRunning={audits.active !== null}
         onClose={() => setCreating(false)}
-        onCreated={async (created) => {
+        onAuditStarted={(job) => {
           setCreating(false);
-          setReports((await api.list()).reports);
-          setDoc(created);
-          setSlug(created.slug);
-          setDirty(false);
-          setTouched(new Set());
+          showAudit(job);
+          audits.refresh();
+        }}
+      />
+
+      <AuditDialog
+        job={shownAudit}
+        open={auditOpen}
+        onClose={closeAudit}
+        onCancel={async (job) => {
+          try {
+            await api.cancelAudit(job.id);
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
+          audits.refresh();
+        }}
+        onRetry={async (job) => {
+          try {
+            showAudit(await api.startAudit({ url: job.url, scope: job.scope, clientName: job.clientName }));
+          } catch (e) {
+            toast.error((e as Error).message, { duration: 10000 });
+          }
+          audits.refresh();
+        }}
+        onOpenReport={(next) => {
+          if (dirty && !window.confirm("Discard unsaved changes and open the new report?")) return;
+          closeAudit();
+          refreshList();
+          load(next);
         }}
       />
 
       <Toaster position="bottom-right" richColors />
     </div>
-  );
-}
-
-function NewReportDialog({
-  open,
-  onClose,
-  onCreated,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: (doc: Doc) => void;
-}) {
-  const [site, setSite] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const slug = slugify(site);
-
-  const submit = async () => {
-    setBusy(true);
-    try {
-      onCreated(await api.create({ slug, site, clientName }));
-      setSite("");
-      setClientName("");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>New report</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Site</Label>
-            <Input value={site} onChange={(e) => setSite(e.target.value)} placeholder="naa.ee" />
-            {site && <p className="font-mono text-[11px] text-muted-foreground">reports/{slug}.json</p>}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Client name</Label>
-            <Input
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="Nordic Aviation Academy"
-            />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Starts from a placeholder finding, because a report with no findings cannot be
-            rendered. Replace it before sending anything to a client.
-          </p>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={busy || !site || !clientName}>
-            Create
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

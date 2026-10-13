@@ -36,7 +36,7 @@ export function assertSlug(slug: unknown): string {
   return slug;
 }
 
-const reportPath = (slug: string) => join(REPORTS, `${assertSlug(slug)}.json`);
+export const reportPath = (slug: string) => join(REPORTS, `${assertSlug(slug)}.json`);
 
 export function listReports(): ReportSummary[] {
   if (!existsSync(REPORTS)) return [];
@@ -96,7 +96,7 @@ export function readReport(slug: string): Doc {
   };
 }
 
-function backup(path: string, slug: string): void {
+export function backup(path: string, slug: string): void {
   if (!existsSync(path)) return;
   const dir = join(BACKUPS, slug);
   mkdirSync(dir, { recursive: true });

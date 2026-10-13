@@ -22,7 +22,7 @@ where a page audit differs.
 
    - If the page serves more than one language or region, also run
      `seo-hreflang` for this URL. `seo-page` only glances at hreflang.
-   - Then run `npm run --silent check-social -- <page-url> --page --json`.
+   - Then run `node scripts/check-social.ts <page-url> --page --json`.
      It checks Open Graph and X/Twitter Card tags on this URL only, fetched as
      Twitterbot. `seo-page` does not check `twitter:image`. Map the result
      exactly as `/new-audit` step 1 describes.
@@ -66,7 +66,7 @@ where a page audit differs.
      add and reference the types.
 
 4. **Write `reports/<slug>.json`** in English only. If the file already exists,
-   stop and ask before overwriting it. Run `npm run report -- <slug>` and fix
+   stop and ask before overwriting it. Run `node src/generate.ts <slug>` and fix
    any validation errors.
 
 5. **Report back**: the page URL, score, finding counts by severity, whether

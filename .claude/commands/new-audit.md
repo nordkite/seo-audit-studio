@@ -14,7 +14,11 @@ apart is what lets claude-seo update without touching anything here.
 
 ## Steps
 
-0. **Preflight.** Run `npm run --silent doctor -- --json`.
+0. **Preflight.** Run `node scripts/doctor.ts --json`.
+
+   Call the scripts in this file with `node`, not `npm run`. The Studio runs
+   this command unattended, and many people keep an `ask` rule on `npm` that
+   nobody is there to answer, so the call would be denied.
 
    - If `ok` is `false`, stop. List each failed check with its `fix` and tell the
      user to run `npm run setup` or `npm run doctor`. Do **not** fall back to
@@ -37,7 +41,7 @@ apart is what lets claude-seo update without touching anything here.
    **`seo-hreflang`**, which the full audit never runs. If the site serves more
    than one language or region, run it as well.
 
-   Then run `npm run --silent check-social -- <url> --json`. It checks Open
+   Then run `node scripts/check-social.ts <url> --json`. It checks Open
    Graph and X/Twitter Card tags on every sitemap URL, fetched as Twitterbot,
    and covers a gap in claude-seo 2.4.2, which never checks `twitter:image`.
    Without that tag X shows shared links with no picture. Each entry in
@@ -79,7 +83,7 @@ apart is what lets claude-seo update without touching anything here.
 
 4. **Write `reports/<slug>.json`.** Findings in English only.
    `/translate-report` fills in `et` and `ru` afterwards. Run
-   `npm run report -- <slug>`: it validates the file and renders the English
+   `node src/generate.ts <slug>`: it validates the file and renders the English
    PDF. Fix any validation error it reports.
 
 5. **Report back** the score, finding counts by severity, whether `metrics` came

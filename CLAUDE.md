@@ -95,6 +95,8 @@ them. Run `npm run typecheck` after changing either.
 | `src/generate.ts` | CLI |
 | `studio/server.ts` | Studio API |
 | `studio/lib/translate/` | translation providers — `cli.ts`, `anthropic.ts` |
+| `studio/lib/audit.ts` | runs `/new-audit` / `/new-page-audit` from the Studio |
+| `studio/lib/keep-awake.ts` | holds off idle sleep while an audit runs (macOS, Windows, Linux) |
 | `studio/client/` | Studio UI — React + Tailwind + shadcn/ui |
 | `components.json` | root-level **only** so `npx shadcn@latest add …` resolves; the CLI needs it beside `package.json` |
 | `tsconfig.json` | type-checks the Node side. Its `paths` entry is unused by that code and exists for the shadcn CLI. The Studio UI's config is `studio/client/tsconfig.json` |
@@ -154,6 +156,29 @@ Adding DeepL or Google means one more module beside `anthropic.ts` and one more
 entry in `PROVIDERS`. They would also need a glossary upload per language pair
 and a separate number-localisation pass, which the LLM providers get from
 `i18n/translation-rules.md` for free.
+
+### Running audits
+
+`studio/lib/audit.ts` starts `/new-audit` or `/new-page-audit` as
+`claude -p --output-format stream-json --permission-mode dontAsk`, with the
+command's own `allowed-tools` frontmatter as `--allowedTools`. Unlike
+translation this **is** an agent run, and has to be: claude-seo needs tools and
+subagents. The Studio adds no audit logic of its own. It runs the same command a
+person would type, so the method stays in the command files and claude-seo.
+
+- The run is unattended, so anything not allowed is denied, not prompted. Denials
+  are listed in the job, because a denied call is a check that never ran.
+- The audit commands call scripts as `node scripts/….ts`, never `npm run`. Many
+  people keep an `ask` rule on `Bash(npm *)`. An ask rule beats any allow rule,
+  and in an unattended run nobody answers it. Keep it that way.
+- Doctor runs before the agent starts, and a failed required check refuses the
+  run.
+- One audit at a time. Jobs live in memory; a Studio restart stops and forgets a
+  running one. Raw logs go to `.studio-audits/` (git-ignored).
+- Success means a new or changed `reports/*.json` that passes `validate()`.
+- `keep-awake.ts` blocks idle sleep for the run's PID with `caffeinate`,
+  `SetThreadExecutionState` or `systemd-inhibit`. None of them stop lid-close
+  sleep. When it fails, the UI warns instead.
 
 ## Print constraints
 

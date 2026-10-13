@@ -7,3 +7,4 @@ studio/client/dist/
 
 # Your own branding (name, logo, colours). Template: brand.example/
 brand/
+.studio-audits/

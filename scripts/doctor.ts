@@ -76,10 +76,12 @@ function cmpVersion(a: string, b: string): number {
 }
 
 /**
- * Inside Claude Code the plugin's runtime lives in the per-plugin data dir that
- * Claude Code passes as CLAUDE_PLUGIN_DATA. Run from a plain shell, the launcher
- * would look in its own fallback dir instead and wrongly report "setup required"
- * — so point it at the data dir when one exists.
+ * claude-seo keeps its runtime in one of two places: the per-plugin data dir
+ * (when it is handed CLAUDE_PLUGIN_DATA) or its own fallback dir
+ * (~/Library/Application Support/claude-seo on macOS). Which one `/seo setup`
+ * used depends on how Claude Code launched it, and in practice the data dir
+ * can exist and be empty while the fallback holds a working runtime. So ask
+ * the launcher about both and accept whichever is ready.
  */
 function pluginDataDir(): string | null {
   const base = join(homedir(), ".claude", "plugins", "data");
@@ -88,24 +90,53 @@ function pluginDataDir(): string | null {
   return hit ? join(base, hit) : null;
 }
 
+function runtimeDoctor(launcher: string, env: NodeJS.ProcessEnv): { ok: boolean; out: string } {
+  // The launcher is a bash script, which Windows cannot exec. Do what it does
+  // instead: hand runtime.py to the first usable Python.
+  const runtime = join(launcher, "..", "runtime.py");
+  const attempts: [string, string[]][] =
+    process.platform === "win32"
+      ? [
+          ...(env.CLAUDE_SEO_PYTHON ? [[env.CLAUDE_SEO_PYTHON, [runtime, "doctor"]] as [string, string[]]] : []),
+          ["py", ["-3", runtime, "doctor"]],
+          ["python3", [runtime, "doctor"]],
+          ["python", [runtime, "doctor"]],
+        ]
+      : [[launcher, ["doctor"]]];
+
+  let last = { ok: false, out: "" };
+  for (const [cmd, args] of attempts) {
+    try {
+      const out = execFileSync(cmd, args, { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 });
+      return { ok: true, out };
+    } catch (e) {
+      const err = e as { code?: string; stdout?: string; stderr?: string };
+      if (err.code === "ENOENT") continue; // that Python is not installed; try the next
+      last = { ok: false, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
+      return last;
+    }
+  }
+  return process.platform === "win32" ? { ok: false, out: "requires Python 3.10" } : last;
+}
+
+const isReady = (r: { ok: boolean; out: string }) => r.ok && !/setup required|not ready/i.test(r.out);
+
 function checkRuntime(installPath: string): CheckResult {
   const launcher = join(installPath, "scripts", "claude-seo");
   if (!existsSync(launcher)) {
     return { ok: false, detail: "launcher missing from the plugin install", fix: "Reinstall: " + INSTALL_PLUGIN[1] };
   }
   const env = { ...process.env };
-  const data = pluginDataDir();
-  if (data && !env.CLAUDE_PLUGIN_DATA) env.CLAUDE_PLUGIN_DATA = data;
 
-  let out = "";
-  let ok = false;
-  try {
-    out = execFileSync(launcher, ["doctor"], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 });
-    ok = true;
-  } catch (e) {
-    const err = e as { stdout?: string; stderr?: string };
-    out = `${err.stdout ?? ""}${err.stderr ?? ""}`;
+  // The launcher's own choice first, then the plugin data dir if that differs.
+  let result = runtimeDoctor(launcher, env);
+  const data = pluginDataDir();
+  if (!isReady(result) && data && !env.CLAUDE_PLUGIN_DATA) {
+    const viaData = runtimeDoctor(launcher, { ...env, CLAUDE_PLUGIN_DATA: data });
+    if (isReady(viaData)) result = viaData;
   }
+  const { ok, out } = result;
+
   const ready = ok && !/setup required|not ready/i.test(out);
   const python = out.match(/Python:\s*([\d.]+)/)?.[1];
   const chromium = /Chromium:\s*(installed|ready)/i.test(out);
