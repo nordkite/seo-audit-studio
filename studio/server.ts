@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { spawn } from "node:child_process";
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, extname, basename } from "node:path";
-import { renderBody, renderCover } from "../src/render.ts";
+import { BODY_MARGIN_MM, renderBody, renderCover } from "../src/render.ts";
 import { brandSource, readBrandConfig, resolveBrand, themeOf, withTheme } from "../src/brand.ts";
 import type { BrandTheme } from "../src/theme.ts";
 import { SUPPORTED_LANGS, isLang } from "../src/i18n.ts";
@@ -11,6 +11,7 @@ import type { Lang, Report } from "../src/types.ts";
 import {
   ROOT,
   assertSlug,
+  deleteReport,
   httpError,
   listReports,
   readReport,
@@ -245,6 +246,10 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
       if (!report) throw httpError(400, "Missing `report`");
       return json(res, 200, writeReport(slug, report, { expectedMtime: mtime }));
     }
+    if (req.method === "DELETE") {
+      deleteReport(slug);
+      return json(res, 200, { ok: true });
+    }
   }
 
   // Preview renders the editor's live buffer, not the file on disk — otherwise
@@ -258,7 +263,16 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
       theme,
     }: { report: Report; part?: string; theme?: BrandTheme } = await readBody(req);
     const brand = theme ? brandWith(theme).brand : undefined;
-    const html = part === "cover" ? renderCover(report, lang, brand) : renderBody(report, lang, brand);
+    // The PDF gets its top and bottom space from page.pdf()'s margins, which an
+    // iframe never sees. Give the body the same space so the preview's first
+    // and last lines sit where they will on paper. The cover bleeds; no padding.
+    const html =
+      part === "cover"
+        ? renderCover(report, lang, brand)
+        : renderBody(report, lang, brand).replace(
+            "</head>",
+            `<style>body { padding: ${BODY_MARGIN_MM.top}mm 0 ${BODY_MARGIN_MM.bottom}mm; }</style></head>`
+          );
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
     return res.end(html);
   }

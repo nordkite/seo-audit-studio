@@ -114,7 +114,7 @@ export function PreviewPane({ report, lang, langPicker }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-3 py-2">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
         <div className="flex items-center gap-2">
           {langPicker}
           <Tabs value={part} onValueChange={(v) => setPart(v as "body" | "cover")}>

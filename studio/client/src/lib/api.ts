@@ -45,6 +45,9 @@ export const api = {
       body: JSON.stringify({ report, mtime }),
     }).then((r) => unwrap<Doc>(r)),
 
+  remove: (slug: string) =>
+    fetch(`/api/report/${slug}`, { method: "DELETE" }).then((r) => unwrap<{ ok: true }>(r)),
+
   create: (body: { slug: string; site: string; clientName: string; siteUrl?: string }) =>
     post("/api/reports", body).then((r) => unwrap<Doc>(r)),
 

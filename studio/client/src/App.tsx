@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Topbar } from "@/components/Topbar";
+import { ReportToolbar } from "@/components/ReportToolbar";
 import { Home } from "@/components/Home";
 import { NewReportDialog, type NewReportPrefill } from "@/components/NewReportDialog";
 import { AuditDialog } from "@/components/AuditDialog";
@@ -132,6 +133,23 @@ export default function App() {
     setCreating(true);
   }, [doc]);
 
+  /** Called from the toolbar's confirm dialog; throws to keep the dialog open. */
+  const remove = useCallback(async () => {
+    if (!slug) return;
+    try {
+      await api.remove(slug);
+    } catch (e) {
+      toast.error((e as Error).message);
+      throw e;
+    }
+    toast.success(`Deleted ${slug}`, { description: `A copy is in .studio-backups/${slug}/` });
+    setDoc(null);
+    setSlug(null);
+    setDirty(false);
+    setTouched(new Set());
+    refreshList();
+  }, [slug, refreshList]);
+
   const update = useCallback(
     (mutate: (draft: Report) => void, touchedPath?: string) => {
       setDoc((d) => (d ? { ...d, report: edit(d.report, mutate) } : d));
@@ -232,16 +250,9 @@ export default function App() {
         reports={reports}
         slug={slug}
         doc={doc}
-        lang={lang}
-        dirty={dirty}
-        busy={busy || translating !== null}
         onPick={load}
         onHome={goHome}
         onNew={openNew}
-        onNewForSite={openNewForSite}
-        onSave={save}
-        onTranslate={translate}
-        onRender={render}
         onSettings={() => setSettingsOpen(true)}
         audit={pillAudit}
         onAudit={() => pillAudit && showAudit(pillAudit)}
@@ -256,122 +267,137 @@ export default function App() {
         />
       ) : (
         <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
-          <div className="min-h-0 space-y-4 overflow-auto p-4">
-            <MetaPanel
-              meta={report!.meta}
-              counts={findingCounts}
-              disabled={translating !== null}
-              onChange={(meta) => update((d) => void (d.meta = meta))}
+          <div className="flex min-h-0 flex-col">
+            <ReportToolbar
+              slug={slug!}
+              site={report!.meta.site}
+              lang={lang}
+              sourceLang={source}
+              dirty={dirty}
+              busy={busy || translating !== null}
+              onSave={save}
+              onTranslate={translate}
+              onRender={render}
+              onNewForSite={openNewForSite}
+              onDelete={remove}
             />
+            <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
+              <MetaPanel
+                meta={report!.meta}
+                counts={findingCounts}
+                disabled={translating !== null}
+                onChange={(meta) => update((d) => void (d.meta = meta))}
+              />
 
-            <Section title="Executive summary & method">
-              <div className="space-y-4">
-                <I18nField
-                  label="Executive summary"
-                  multiline
-                  rows={5}
-                  value={report!.summary}
-                  onChange={(v) => update((d) => void (d.summary = v), paths.summary())}
-                  lang={lang}
-                  sourceLang={source}
-                  status={statusOf(paths.summary())}
-                  disabled={translating !== null}
-                />
-                <I18nField
-                  label="Method"
-                  multiline
-                  rows={4}
-                  value={report!.method}
-                  onChange={(v) => update((d) => void (d.method = v), paths.method())}
-                  lang={lang}
-                  sourceLang={source}
-                  status={statusOf(paths.method())}
-                  disabled={translating !== null}
-                />
-                <div className="space-y-1.5">
+              <Section title="Executive summary & method">
+                <div className="space-y-4">
                   <I18nField
-                    label="Closing note"
-                    value={report!.closingNote}
-                    onChange={(v) =>
-                      update((d) => void (d.closingNote = v), paths.closingNote())
-                    }
+                    label="Executive summary"
+                    multiline
+                    rows={5}
+                    value={report!.summary}
+                    onChange={(v) => update((d) => void (d.summary = v), paths.summary())}
                     lang={lang}
                     sourceLang={source}
-                    status={
-                      report!.closingNote && !report!.hideClosingNote
-                        ? statusOf(paths.closingNote())
-                        : undefined
-                    }
-                    placeholder="Empty: “Confidential — prepared for the named client only.”"
-                    disabled={translating !== null || report!.hideClosingNote}
+                    status={statusOf(paths.summary())}
+                    disabled={translating !== null}
                   />
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={!report!.hideClosingNote}
-                      disabled={translating !== null}
-                      onChange={(e) =>
-                        update((d) => {
-                          if (e.target.checked) delete d.hideClosingNote;
-                          else d.hideClosingNote = true;
-                        })
+                  <I18nField
+                    label="Method"
+                    multiline
+                    rows={4}
+                    value={report!.method}
+                    onChange={(v) => update((d) => void (d.method = v), paths.method())}
+                    lang={lang}
+                    sourceLang={source}
+                    status={statusOf(paths.method())}
+                    disabled={translating !== null}
+                  />
+                  <div className="space-y-1.5">
+                    <I18nField
+                      label="Closing note"
+                      value={report!.closingNote}
+                      onChange={(v) =>
+                        update((d) => void (d.closingNote = v), paths.closingNote())
                       }
+                      lang={lang}
+                      sourceLang={source}
+                      status={
+                        report!.closingNote && !report!.hideClosingNote
+                          ? statusOf(paths.closingNote())
+                          : undefined
+                      }
+                      placeholder="Empty: “Confidential — prepared for the named client only.”"
+                      disabled={translating !== null || report!.hideClosingNote}
                     />
-                    Show closing note at the end of the report
-                  </label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={!report!.hideClosingNote}
+                        disabled={translating !== null}
+                        onChange={(e) =>
+                          update((d) => {
+                            if (e.target.checked) delete d.hideClosingNote;
+                            else d.hideClosingNote = true;
+                          })
+                        }
+                      />
+                      Show closing note at the end of the report
+                    </label>
+                  </div>
                 </div>
-              </div>
-            </Section>
+              </Section>
 
-            <Section title="Findings">
-              <FindingsBoard
-                findings={report!.findings}
-                lang={lang}
-                sourceLang={source}
-                statusOf={statusOf}
-                disabled={translating !== null}
-                onChange={(findings) => update((d) => void (d.findings = findings))}
-                onMoved={(m) => toast.info(m)}
-              />
-            </Section>
+              <Section title="Findings">
+                <FindingsBoard
+                  findings={report!.findings}
+                  lang={lang}
+                  sourceLang={source}
+                  statusOf={statusOf}
+                  disabled={translating !== null}
+                  onChange={(findings) => update((d) => void (d.findings = findings))}
+                  onMoved={(m) => toast.info(m)}
+                />
+              </Section>
 
-            <Section title="Custom sections">
-              <SectionsPanel
-                slug={slug!}
-                sections={report!.sections ?? []}
-                lang={lang}
-                sourceLang={source}
-                statusOf={statusOf}
-                disabled={translating !== null}
-                onError={(m) => toast.error(m)}
-                onChange={(sections) => update((d) => void (d.sections = sections))}
-              />
-            </Section>
+              <Section title="Custom sections">
+                <SectionsPanel
+                  slug={slug!}
+                  sections={report!.sections ?? []}
+                  lang={lang}
+                  sourceLang={source}
+                  statusOf={statusOf}
+                  disabled={translating !== null}
+                  onError={(m) => toast.error(m)}
+                  onChange={(sections) => update((d) => void (d.sections = sections))}
+                />
+              </Section>
 
-            <Section title="Recommended order of work">
-              <ListPanel
-                collection="roadmap"
-                numbered
-                items={report!.roadmap ?? []}
-                lang={lang}
-                sourceLang={source}
-                statusOf={statusOf}
-                disabled={translating !== null}
-                onChange={(roadmap) => update((d) => void (d.roadmap = roadmap))}
-              />
-            </Section>
+              <Section title="Recommended order of work">
+                <ListPanel
+                  collection="roadmap"
+                  numbered
+                  items={report!.roadmap ?? []}
+                  lang={lang}
+                  sourceLang={source}
+                  statusOf={statusOf}
+                  disabled={translating !== null}
+                  onChange={(roadmap) => update((d) => void (d.roadmap = roadmap))}
+                />
+              </Section>
 
-            <Section title="Not covered by this audit">
-              <ListPanel
-                collection="notCovered"
-                items={report!.notCovered ?? []}
-                lang={lang}
-                sourceLang={source}
-                statusOf={statusOf}
-                disabled={translating !== null}
-                onChange={(notCovered) => update((d) => void (d.notCovered = notCovered))}
-              />
-            </Section>
+              <Section title="Not covered by this audit">
+                <ListPanel
+                  collection="notCovered"
+                  items={report!.notCovered ?? []}
+                  lang={lang}
+                  sourceLang={source}
+                  statusOf={statusOf}
+                  disabled={translating !== null}
+                  onChange={(notCovered) => update((d) => void (d.notCovered = notCovered))}
+                />
+              </Section>
+            </div>
           </div>
 
           <div className="hidden min-h-0 border-l xl:block">

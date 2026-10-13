@@ -151,6 +151,17 @@ export function writeReport(
   return readReport(slug);
 }
 
+/**
+ * Delete a report. Its last state goes to .studio-backups/ first: reports are
+ * git-ignored, so that copy is the only way back. assets/<slug>/ is left alone.
+ */
+export function deleteReport(slug: string): void {
+  const path = reportPath(slug);
+  if (!existsSync(path)) throw httpError(404, `No such report: ${slug}`);
+  backup(path, slug);
+  unlinkSync(path);
+}
+
 export function reportExists(slug: string): boolean {
   return existsSync(reportPath(slug));
 }
