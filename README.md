@@ -8,10 +8,9 @@ once in `brand/`.
 
 ```bash
 npm run setup                      # also creates brand/ from brand.example/
-npm run report -- naa-ee --all
-# → out/SEO-Audit-naa-ee-en-<date>.pdf  (re-renders add _1, _2…)
-# → out/SEO-Audit-naa-ee-et-<date>.pdf  (re-renders add _1, _2…)
-# → out/SEO-Audit-naa-ee-ru-<date>.pdf  (re-renders add _1, _2…)
+npm run report -- example-com--home --all
+# → out/SEO-Audit-example-com--home-<lang>-<date>.pdf, one per translated language
+#   (re-renders add _1, _2…)
 ```
 
 ## Setup
@@ -165,7 +164,7 @@ return the same result — the difference is who pays.
 | **Claude API** | your Anthropic API key | anywhere | ~$0.05–0.15 per report per language |
 
 Either way it is one model call per few thousand characters, not an agent
-session: the whole of `naa-ee` is 108 fields and ~8,000 characters, which runs in
+session: a full site audit is ~108 fields and ~8,000 characters, which runs in
 a handful of parallel requests. The model never touches the file — the server
 applies the result by field path and saves it the same way the editor does.
 
@@ -195,7 +194,7 @@ Everything the Studio needs is a `devDependency`. `dependencies` is exactly
 `pdf-lib` and `puppeteer`:
 
 ```bash
-npm ci --omit=dev && npm run report -- naa-ee   # still works
+npm ci --omit=dev && npm run report -- example-com--home   # still works
 ```
 
 Keep it that way — the PDF pipeline should never depend on the editor.
@@ -253,7 +252,7 @@ diagram. They slot in after a named built-in section:
   "title": { "en": "…", "et": "…", "ru": "…" },
   "body":  { "en": "…" },
   "image": {
-    "src": "assets/naa-ee/serp.png",
+    "src": "assets/example-com/serp.png",
     "alt":     { "en": "…" },
     "caption": { "en": "…" }
   }
@@ -322,8 +321,8 @@ against.
 ## Verifying layout changes
 
 ```bash
-npm run report -- naa-ee --lang en --html
-pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-naa-ee-en-*.pdf | head -1)" out/_check
+npm run report -- example-com--home --lang en --html
+pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-example-com--home-en-*.pdf | head -1)" out/_check
 ```
 
 Then look at the PNGs. `pdftoppm` comes from poppler (`brew install poppler`).

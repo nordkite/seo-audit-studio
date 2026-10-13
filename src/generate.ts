@@ -30,9 +30,9 @@ Options
 Branding comes from brand/brand.json (or the folder in $BRAND_DIR).
 
 Examples
-  npm run report -- naa-ee --all
-  npm run report -- naa-ee --lang et --lang ru
-  npm run report -- ./reports/naa-ee.json -o ~/Desktop
+  npm run report -- example-com--home --all
+  npm run report -- example-com--home --lang et --lang ru
+  npm run report -- ./reports/example-com--home.json -o ~/Desktop
 `;
 
 interface Options {

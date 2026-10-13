@@ -111,4 +111,14 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Tailwind v4 preflight dropped the pointer cursor on buttons. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="option"],
+  [role="tab"],
+  [role="checkbox"],
+  [role="switch"] {
+    cursor: pointer;
+  }
 }

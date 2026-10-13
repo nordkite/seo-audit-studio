@@ -8,3 +8,10 @@ studio/client/dist/
 # Your own branding (name, logo, colours). Template: brand.example/
 brand/
 .studio-audits/
+
+# Your clients' audits and their images. Only the example-com fixtures are tracked.
+reports/*
+!reports/example-com.json
+!reports/example-com--*.json
+assets/*
+!assets/README.md
