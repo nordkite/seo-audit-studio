@@ -96,7 +96,7 @@ function AuditForm({
         <Input
           value={url}
           onChange={(e) => onUrl(e.target.value)}
-          placeholder="naa.ee or https://naa.ee/courses/"
+          placeholder="example.com or https://example.com/courses/"
           autoFocus
         />
       </div>
@@ -134,7 +134,7 @@ function AuditForm({
         <Input
           value={clientName}
           onChange={(e) => setClientName(e.target.value)}
-          placeholder="Nordic Aviation Academy"
+          placeholder="Example Ltd"
         />
       </div>
 

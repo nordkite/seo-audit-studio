@@ -36,9 +36,9 @@ interface Props {
 }
 
 const FIELDS: Array<[keyof Meta, string, string?]> = [
-  ["site", "Site", "naa.ee"],
-  ["siteUrl", "Site URL", "https://naa.ee/"],
-  ["clientName", "Client", "Nordic Aviation Academy"],
+  ["site", "Site", "example.com"],
+  ["siteUrl", "Site URL", "https://example.com/"],
+  ["clientName", "Client", "Example Ltd"],
   ["auditedAt", "Audit date", "2026-07-31"],
 ];
 

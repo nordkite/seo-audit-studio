@@ -95,11 +95,11 @@ apart is what lets claude-seo update without touching anything here.
 ```jsonc
 {
   "meta": {
-    "slug": "naa-ee",              // kebab-case, becomes the filename
-    "site": "naa.ee",              // shown large on the cover
-    "siteUrl": "https://naa.ee/",
+    "slug": "example-com",              // kebab-case, becomes the filename
+    "site": "example.com",              // shown large on the cover
+    "siteUrl": "https://example.com/",
     // "scope": "page", "pageUrl": "…"  — only for /new-page-audit; omit here
-    "clientName": "Nordic Aviation Academy",
+    "clientName": "Example Ltd",
     "auditedAt": "2026-07-31",     // ISO date
     "pagesAnalyzed": 17,
     "score": 54,                   // 0-100
@@ -110,7 +110,7 @@ apart is what lets claude-seo update without touching anything here.
   "method": { "en": "…" },         // how you measured, and what you couldn't
   "metrics": {                     // optional — measured numbers, never translated
     "searchConsole": {             // optional
-      "property": "sc-domain:naa.ee",
+      "property": "sc-domain:example.com",
       "start": "2026-07-03",       // ISO dates, inclusive
       "end": "2026-07-30",
       "clicks": 1234,
@@ -118,11 +118,11 @@ apart is what lets claude-seo update without touching anything here.
       "ctr": 0.027,                // a fraction, not a percentage
       "position": 18.4,
       "topQueries": [              // up to 10, by clicks; queries verbatim
-        { "query": "lennukool", "clicks": 120, "impressions": 3400, "position": 4.2 }
+        { "query": "example query", "clicks": 120, "impressions": 3400, "position": 4.2 }
       ]
     },
     "coreWebVitals": {             // optional
-      "url": "https://naa.ee/",
+      "url": "https://example.com/",
       "strategy": "mobile",        // mobile | desktop
       "source": "field",           // field (CrUX p75) | lab (Lighthouse)
       "lcp": 2830,                 // ms
@@ -137,7 +137,7 @@ apart is what lets claude-seo update without touching anything here.
       "severity": "critical",      // critical | warning | opportunity | pass
       "impact": "high",            // high | medium | low — omit on `pass`
       "effort": "low",             // high | medium | low — omit on `pass`
-      "evidence": "http://naa.ee/",
+      "evidence": "http://example.com/",
       "title": { "en": "…" },
       "body":  { "en": "…" }       // omit on `pass` — the title carries it
     }

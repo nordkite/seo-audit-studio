@@ -53,12 +53,12 @@ where a page audit differs.
        redirects; mention a redirect in `method` if there was one).
      - `site`: the domain, as in a site audit. `siteUrl`: the site's homepage.
      - `pagesAnalyzed: 1`.
-     - **`slug`**: `<site-slug>--<page-slug>`, for example `naa-ee--courses` for
-       `https://naa.ee/courses/` or `naa-ee--home` for the homepage. The
+     - **`slug`**: `<site-slug>--<page-slug>`, for example `example-com--courses` for
+       `https://example.com/courses/` or `example-com--home` for the homepage. The
        page slug is the URL path in kebab case, without the language prefix
        when the site uses one only for routing (`/en/pricing` →
-       `naa-ee--en-pricing` if several language versions might be audited
-       separately, otherwise `naa-ee--pricing`). The double hyphen keeps
+       `example-com--en-pricing` if several language versions might be audited
+       separately, otherwise `example-com--pricing`). The double hyphen keeps
        page reports apart from the site report and sorted next to it.
    - **Roadmap**: for this page only. Order it as usual.
    - **Schema suggestions.** If `seo-page` produced ready-made JSON-LD, put it

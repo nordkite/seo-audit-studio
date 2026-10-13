@@ -188,7 +188,7 @@ function saveBrandTheme(theme: BrandTheme): BrandDoc {
 
 async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
   const p = url.pathname;
-  const seg = p.split("/").filter(Boolean); // ["api", "report", "naa-ee"]
+  const seg = p.split("/").filter(Boolean); // ["api", "report", "example-com--home"]
 
   if (p === "/api/health") {
     const health: Health = {
