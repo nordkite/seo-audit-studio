@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ReportPicker } from "@/components/ReportPicker";
-import { scoreBand } from "@/lib/report";
+import { scoreBand, scoreTone } from "@/lib/report";
 import { cn } from "@/lib/utils";
 import type { ReportSummary } from "@/lib/types";
 
@@ -22,12 +22,6 @@ const SORT_LABEL: Record<Sort, string> = {
   score: "Lowest score",
   site: "A–Z",
 };
-
-const scoreColor = (score: number) =>
-  score >= 90 ? "var(--sev-pass)"
-  : score >= 70 ? "var(--sev-opportunity)"
-  : score >= 50 ? "var(--sev-warning)"
-  : "var(--sev-critical)";
 
 function formatDate(iso: string | null) {
   if (!iso) return "No date";
@@ -52,7 +46,7 @@ function ScoreRing({ score }: { score: number | null }) {
             r={r}
             fill="none"
             strokeWidth="4"
-            stroke={scoreColor(value)}
+            stroke={scoreTone(value)}
             strokeDasharray={c}
             strokeDashoffset={c * (1 - value / 100)}
             className="transition-[stroke-dashoffset] duration-700 ease-out"

@@ -26,6 +26,12 @@ export const scoreBand = (score: number) =>
   : score >= 50 ? "Needs significant work"
   : "Critical issues";
 
+/** Same bands as the PDF's bandTone(): 70+ is good news, so it reads green, not blue. */
+export const scoreTone = (score: number) =>
+  score >= 70 ? "var(--sev-pass)"
+  : score >= 50 ? "var(--sev-warning)"
+  : "var(--sev-critical)";
+
 export const isI18n = (v: unknown): v is I18n =>
   v !== null && typeof v === "object" && !Array.isArray(v);
 

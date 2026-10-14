@@ -82,6 +82,41 @@
     "devices": {
       "mobile": "Mobile",
       "desktop": "Desktop"
+    },
+    "lighthouseTitle": "Lighthouse scores",
+    "lighthouse": {
+      "performance": "Performance",
+      "accessibility": "Accessibility",
+      "bestPractices": "Best practices",
+      "seo": "SEO"
     }
+  },
+  "dataSources": {
+    "title": "Data sources",
+    "sources": {
+      "searchConsole": "Google Search Console",
+      "analytics": "Google Analytics 4",
+      "crux": "CrUX (real-user Core Web Vitals)",
+      "pagespeed": "PageSpeed Insights (lab test)"
+    },
+    "statuses": {
+      "used": "Used",
+      "notConfigured": "Not connected",
+      "noAccess": "No access to this site",
+      "noData": "No data for this site",
+      "failed": "Request failed"
+    }
+  },
+  "scores": {
+    "title": "Score by category"
+  },
+  "categories": {
+    "technical": "Technical SEO",
+    "content": "Content quality",
+    "onPage": "On-page SEO",
+    "schema": "Structured data",
+    "performance": "Performance",
+    "aiSearch": "AI search readiness",
+    "images": "Images"
   }
 }

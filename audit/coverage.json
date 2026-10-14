@@ -1,0 +1,95 @@
+{
+  "_comment": "What every audit must cover, read by /new-audit and /new-page-audit. `subagents` is what claude-seo should run, listed so the commands can check it actually did; a missing one goes in `method` and `notCovered`, never silently. `supplements` are this repo's own additions for gaps in claude-seo. Each says why it exists and when to delete it. When claude-seo is upgraded past `claudeSeoVersion`, re-check every `gap` and delete supplements claude-seo now covers itself.",
+  "claudeSeoVersion": "2.4.2",
+
+  "subagents": {
+    "site": {
+      "_comment": "claude-seo's seo-audit spawns these itself. Do not spawn them again; only check they ran.",
+      "always": [
+        "seo-technical",
+        "seo-content",
+        "seo-schema",
+        "seo-sitemap",
+        "seo-performance",
+        "seo-visual",
+        "seo-geo",
+        "seo-agentic",
+        "seo-sxo"
+      ],
+      "when": {
+        "seo-local": "local business detected (brick-and-mortar, service-area or hybrid)",
+        "seo-ecommerce": "online store detected",
+        "seo-google": "Google API credentials configured",
+        "seo-backlinks": "Moz or Bing backlink credentials configured",
+        "seo-cluster": "blog, pillar pages or topic clusters detected",
+        "seo-maps": "local business detected and DataForSEO MCP available",
+        "seo-drift": "a drift baseline exists for the URL"
+      }
+    },
+    "page": {
+      "_comment": "claude-seo's seo-page runs no subagents, so /new-page-audit spawns these itself, each scoped to the one URL. Site-wide subagents (seo-sitemap, seo-backlinks, seo-cluster, seo-maps) are left out on purpose.",
+      "always": [
+        "seo-technical",
+        "seo-content",
+        "seo-schema",
+        "seo-performance",
+        "seo-visual",
+        "seo-geo",
+        "seo-agentic",
+        "seo-sxo"
+      ],
+      "when": {
+        "seo-local": "local business detected (brick-and-mortar, service-area or hybrid)",
+        "seo-ecommerce": "the page is a product, category or cart page",
+        "seo-google": "Google API credentials configured",
+        "seo-drift": "a drift baseline exists for the URL"
+      }
+    }
+  },
+
+  "supplements": [
+    {
+      "id": "hreflang",
+      "scope": ["site", "page"],
+      "when": "the site serves more than one language or region",
+      "run": "skill claude-seo:seo-hreflang",
+      "gap": "seo-audit never delegates to seo-hreflang, and seo-page only checks that hreflang tags exist.",
+      "removeWhen": "seo-audit spawns seo-hreflang and seo-page validates reciprocity and x-default."
+    },
+    {
+      "id": "images",
+      "scope": ["site", "page"],
+      "when": "always",
+      "run": "skill claude-seo:seo-images",
+      "target": {
+        "site": "the homepage plus up to 4 distinct page templates (for example a product, category, article and contact page)",
+        "page": "the audited URL"
+      },
+      "gap": "seo-audit has no image subagent. seo-technical, seo-performance and seo-visual each touch images, but none checks file sizes, formats, alt text and lazy loading together.",
+      "removeWhen": "seo-audit spawns an image subagent."
+    },
+    {
+      "id": "social-tags",
+      "scope": ["site", "page"],
+      "when": "always",
+      "run": {
+        "site": "node scripts/check-social.ts <url> --json",
+        "page": "node scripts/check-social.ts <page-url> --page --json"
+      },
+      "gap": "claude-seo never checks twitter:image. Without it X shows shared links with no picture even when og:image is set.",
+      "removeWhen": "claude-seo checks twitter:image."
+    },
+    {
+      "id": "lighthouse",
+      "scope": ["site", "page"],
+      "when": "always, with or without Google API credentials",
+      "run": "\"$CLAUDE_SEO\" run pagespeed_check.py <url> --psi-only --json",
+      "target": {
+        "site": "the homepage",
+        "page": "the audited URL"
+      },
+      "gap": "seo-audit only measures Core Web Vitals through seo-google when credentials exist, and seo-page never measures them. PageSpeed Insights works without a key, so every report can carry lab numbers.",
+      "removeWhen": "both claude-seo audits run PageSpeed Insights without credentials."
+    }
+  ]
+}

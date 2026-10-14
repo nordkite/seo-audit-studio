@@ -4,14 +4,19 @@ import { loadStrings, t, formatDate, formatNumber, type Strings } from "./i18n.t
 import { loadBrand, type Brand } from "./brand.ts";
 import type { LogoVariant, Surface } from "./theme.ts";
 import {
+  CATEGORIES,
+  DATA_SOURCES,
+  LIGHTHOUSE,
   SEVERITIES,
   type CoreWebVitalsMetrics,
   type Finding,
   type Lang,
+  type Meta,
   type Report,
   type SearchConsoleMetrics,
   type Section,
   type Severity,
+  type SourceStatus,
 } from "./types.ts";
 
 const ROOT = join(import.meta.dirname, "..");
@@ -294,14 +299,16 @@ function searchConsoleSection(gsc: SearchConsoleMetrics, s: Strings, locale: str
     metricCell(n(gsc.position, { maximumFractionDigits: 1 }), s.metrics.position),
   ].join("");
 
-  const rows = (gsc.topQueries ?? [])
-    .slice(0, 10)
+  const queries = (gsc.topQueries ?? []).slice(0, 10);
+  // Impressions as a bar beside the number, scaled to the busiest query.
+  const most = Math.max(1, ...queries.map((q) => q.impressions));
+  const rows = queries
     .map(
       (q) => `
         <tr>
           <td>${esc(q.query)}</td>
           <td class="num">${n(q.clicks)}</td>
-          <td class="num">${n(q.impressions)}</td>
+          <td class="num"><span class="qbar"><span style="width: ${((q.impressions / most) * 100).toFixed(1)}%"></span></span>${n(q.impressions)}</td>
           <td class="num">${n(q.position, { maximumFractionDigits: 1 })}</td>
         </tr>`
     )
@@ -333,6 +340,56 @@ function searchConsoleSection(gsc: SearchConsoleMetrics, s: Strings, locale: str
     </section>`;
 }
 
+/** Lighthouse's own colour bands: 90+ green, 50–89 orange, below 50 red. */
+function lighthouseTone(score: number): string {
+  return score >= 90 ? "var(--pass)" : score >= 50 ? "var(--warning)" : "var(--critical)";
+}
+
+/** One Lighthouse score as a ring, drawn like the cover dial but smaller. */
+function gauge(score: number, label: string): string {
+  const C = 2 * Math.PI * 40;
+  const v = Math.round(Math.max(0, Math.min(100, score)));
+  const filled = (v / 100) * C;
+  return `
+        <figure class="gauge">
+          <svg viewBox="0 0 100 100" role="img" aria-label="${esc(label)}: ${v}">
+            <circle class="gauge__track" cx="50" cy="50" r="40"></circle>
+            <circle class="gauge__value" cx="50" cy="50" r="40" style="stroke: ${lighthouseTone(v)}"
+                    stroke-dasharray="${filled.toFixed(2)} ${(C - filled).toFixed(2)}"></circle>
+            <text class="gauge__number" x="50" y="59">${v}</text>
+          </svg>
+          <figcaption>${esc(label)}</figcaption>
+        </figure>`;
+}
+
+/**
+ * A Core Web Vital on Google's scale: good, needs improvement and poor as three
+ * tinted bands, the measured value as a marker. The scale runs to 1.5× the
+ * poor threshold, further only when the value is beyond that.
+ */
+function thresholdRow(metric: CwvMetric, value: number, fmt: (v: number) => string, s: Strings): string {
+  const th = CWV[metric];
+  const max = Math.max(th.poor * 1.5, value * 1.05);
+  const pct = (x: number) => ((Math.min(x, max) / max) * 100).toFixed(2);
+  const rating = cwvRating(metric, value);
+  return `
+        <div class="cwv t-${RATING_TONE[rating]}">
+          <div class="cwv__name">${metric.toUpperCase()}</div>
+          <div class="cwv__track">
+            <span class="cwv__band cwv__band--good" style="width: ${pct(th.good)}%"></span>
+            <span class="cwv__band cwv__band--mid" style="width: ${(+pct(th.poor) - +pct(th.good)).toFixed(2)}%"></span>
+            <span class="cwv__band cwv__band--poor"></span>
+            <span class="cwv__mark" style="left: ${pct(value)}%"></span>
+            <span class="cwv__tick" style="left: ${pct(th.good)}%">${esc(fmt(th.good))}</span>
+            <span class="cwv__tick" style="left: ${pct(th.poor)}%">${esc(fmt(th.poor))}</span>
+          </div>
+          <div class="cwv__value">
+            <b>${esc(fmt(value))}</b>
+            <span class="glance__sub"><span class="dot"></span>${esc(s.metrics.ratings[rating])}</span>
+          </div>
+        </div>`;
+}
+
 /**
  * Field data (CrUX: real Chrome users, p75) and lab data (one Lighthouse run)
  * are not interchangeable, and a client reading the PDF cannot tell them apart
@@ -340,19 +397,20 @@ function searchConsoleSection(gsc: SearchConsoleMetrics, s: Strings, locale: str
  */
 function coreWebVitalsSection(cwv: CoreWebVitalsMetrics, s: Strings, locale: string): string {
   const n = numberFormat(locale);
-  const secs = (ms: number) => `${n(ms / 1000, { maximumFractionDigits: 1 })} s`;
-  const cell = (metric: CwvMetric, value: number, shown: string) =>
-    metricCell(shown, metric.toUpperCase(), {
-      tone: RATING_TONE[cwvRating(metric, value)],
-      sub: s.metrics.ratings[cwvRating(metric, value)],
-    });
+  const fmt: Record<CwvMetric, (v: number) => string> = {
+    lcp: (ms) => `${n(ms / 1000, { maximumFractionDigits: 1 })} s`,
+    inp: (ms) => `${n(Math.round(ms))} ms`,
+    cls: (v) => n(v, { maximumFractionDigits: 2 }),
+  };
 
-  const cells = [
-    cwv.lcp != null ? cell("lcp", cwv.lcp, secs(cwv.lcp)) : "",
-    cwv.inp != null ? cell("inp", cwv.inp, `${n(Math.round(cwv.inp))} ms`) : "",
-    cwv.cls != null ? cell("cls", cwv.cls, n(cwv.cls, { maximumFractionDigits: 2 })) : "",
-    cwv.performance != null ? metricCell(n(cwv.performance), s.metrics.performance) : "",
-  ].join("");
+  const rows = (Object.keys(CWV) as CwvMetric[])
+    .filter((metric) => cwv[metric] != null)
+    .map((metric) => thresholdRow(metric, cwv[metric]!, fmt[metric], s))
+    .join("");
+
+  const gauges = LIGHTHOUSE.filter((k) => cwv[k] != null)
+    .map((k) => gauge(cwv[k]!, s.metrics.lighthouse[k]))
+    .join("");
 
   const source = cwv.source === "field" ? s.metrics.fieldNote : s.metrics.labNote;
   const device = s.metrics.devices[cwv.strategy ?? ""] ?? cwv.strategy ?? "";
@@ -364,9 +422,64 @@ function coreWebVitalsSection(cwv: CoreWebVitalsMetrics, s: Strings, locale: str
         <span class="section__count">${esc(device)}</span>
       </div>
       <p class="section__hint">${esc(source)}</p>
-      <div class="glance glance--metrics">${cells}</div>
+      ${rows ? `<div class="cwvs">${rows}</div>` : ""}
+      ${
+        gauges
+          ? `<div class="chart__title">${esc(s.metrics.lighthouseTitle)}</div>
+             <div class="gauges">${gauges}</div>`
+          : ""
+      }
       ${cwv.url ? `<p class="metrics__note">${esc(s.meta.evidence)}: ${esc(cwv.url)}</p>` : ""}
     </section>`;
+}
+
+/** claude-seo's category scores as bars, coloured by the same bands as the cover dial. */
+function categoryScores(scores: Report["scores"], s: Strings): string {
+  const rows = CATEGORIES.filter((c) => typeof scores?.[c] === "number")
+    .map((c) => {
+      const v = Math.round(scores![c]!);
+      return `
+        <div class="bars__row">
+          <span class="bars__label">${esc(s.categories[c])}</span>
+          <span class="bars__track"><span style="width: ${v}%; background: ${bandTone(scoreBand(v))}"></span></span>
+          <span class="bars__n">${v}</span>
+        </div>`;
+    })
+    .join("");
+  return rows
+    ? `<div class="chart__title">${esc(s.scores.title)}</div>
+       <div class="bars">${rows}</div>`
+    : "";
+}
+
+/** Only a used source reads as good news; the rest are facts, not faults. */
+const SOURCE_TONE: Partial<Record<SourceStatus, Severity>> = {
+  used: "pass",
+  failed: "warning",
+};
+
+/**
+ * Which measured data the audit had. A client should be able to tell "no
+ * Search Console numbers because we had no access" from "no problems found".
+ */
+function dataSourcesList(sources: Meta["dataSources"], s: Strings): string {
+  const rows = DATA_SOURCES.filter((src) => sources?.[src])
+    .map((src) => {
+      const status = sources![src]!;
+      const tone = SOURCE_TONE[status];
+      return `
+        <div${tone ? ` class="t-${tone}"` : ""}>
+          <dt>${esc(s.dataSources.sources[src])}</dt>
+          <dd><span class="dot"></span>${esc(s.dataSources.statuses[status])}</dd>
+        </div>`;
+    })
+    .join("");
+  return rows
+    ? `<div class="sources">
+         <div class="sources__title">${esc(s.dataSources.title)}</div>
+         <dl>${rows}</dl>
+       </div>`
+    : "";
 }
 
 /** The brand's font first, then the stylesheet's system stack as fallback. */
@@ -579,7 +692,9 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
     <div class="section__head"><h2>${esc(s.sections.breakdown)}</h2></div>
     ${dist ? `<div class="dist" aria-hidden="true">${dist}</div>` : ""}
     <div class="glance">${glance}</div>
+    ${categoryScores(report.scores, s)}
     <div class="method">${esc(t(report.method, lang, sourceLang))}</div>
+    ${dataSourcesList(m.dataSources, s)}
   </section>
 
   ${report.metrics?.searchConsole ? searchConsoleSection(report.metrics.searchConsole, s, s.locale) : ""}

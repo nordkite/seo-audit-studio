@@ -35,9 +35,20 @@ export interface Check {
 
 type CheckResult = Omit<Check, "name" | "required">;
 
+/** Which Google services claude-seo has credentials for. Keys match `meta.dataSources`. */
+export interface GoogleServices {
+  searchConsole: boolean;
+  analytics: boolean;
+  crux: boolean;
+}
+
 export interface DoctorResult {
   ok: boolean;
   testedVersion: string | undefined;
+  /** claude-seo's script launcher, for the `run <script>.py` calls in audit/coverage.json. */
+  claudeSeo?: string;
+  /** Absent when claude-seo could not be asked. */
+  google?: GoogleServices;
   checks: Check[];
 }
 
@@ -174,6 +185,45 @@ function checkRuntime(installPath: string): CheckResult {
   };
 }
 
+/**
+ * Asks claude-seo which Google services its credentials unlock. GA4 also needs a
+ * property ID, so credentials alone do not mean Analytics is available.
+ */
+function googleServices(launcher: string): GoogleServices | undefined {
+  if (process.platform === "win32") return undefined;
+  const res = run(launcher, ["run", "google_auth.py", "--check", "--json"]);
+  try {
+    const { services } = JSON.parse(res.out.slice(res.out.indexOf("{")));
+    return {
+      searchConsole: Boolean(services.gsc?.available),
+      analytics: Boolean(services.ga4?.available),
+      crux: Boolean(services.crux?.available),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * audit/coverage.json lists claude-seo's gaps as of one release. A newer
+ * claude-seo may have closed some, which would make a supplement run twice.
+ */
+function checkCoverage(installed: string): CheckResult {
+  try {
+    const { claudeSeoVersion } = JSON.parse(readFileSync(join(ROOT, "audit", "coverage.json"), "utf8"));
+    return claudeSeoVersion === installed
+      ? { ok: true, detail: `reviewed against claude-seo ${claudeSeoVersion}` }
+      : {
+          ok: true,
+          warn: true,
+          detail: `reviewed against claude-seo ${claudeSeoVersion}, installed ${installed}`,
+          fix: "Re-check each supplement's `gap` in audit/coverage.json, delete any claude-seo now covers, then update `claudeSeoVersion`",
+        };
+  } catch (err) {
+    return { ok: false, detail: (err as Error).message, fix: "Restore audit/coverage.json from git" };
+  }
+}
+
 function checkBrand(): CheckResult {
   try {
     const brand = loadBrand();
@@ -233,7 +283,11 @@ export function doctor(): DoctorResult {
     });
   } else if (!plugin.enabled) {
     add("claude-seo plugin", true, { ok: false, detail: `${plugin.version}, disabled`, fix: `claude plugin enable ${PLUGIN_ID}` });
-  } else {
+  }
+
+  let claudeSeo: string | undefined;
+  let google: GoogleServices | undefined;
+  if (plugin?.enabled) {
     const drift = TESTED_VERSION && plugin.version !== TESTED_VERSION;
     add("claude-seo plugin", true, {
       ok: true,
@@ -242,13 +296,35 @@ export function doctor(): DoctorResult {
         ? `${plugin.version} — reports are tested against ${TESTED_VERSION}; check a reference audit before sending this one to a client`
         : plugin.version,
     });
-    add("claude-seo runtime", true, checkRuntime(plugin.installPath));
+    const runtime = checkRuntime(plugin.installPath);
+    add("claude-seo runtime", true, runtime);
+    add("Audit coverage", true, checkCoverage(plugin.version));
+    if (runtime.ok) {
+      claudeSeo = join(plugin.installPath, "scripts", "claude-seo");
+      google = googleServices(claudeSeo);
+    }
   }
 
   const gcfg = join(homedir(), ".config", "claude-seo", "google-api.json");
-  add("Google APIs (optional)", false, existsSync(gcfg)
-    ? { ok: true, detail: "configured — Search Console and Core Web Vitals sections available" }
-    : { ok: false, detail: "not configured — the report will skip Search Console and field Core Web Vitals", fix: "In Claude Code: /seo google setup" });
+  if (!existsSync(gcfg)) {
+    add("Google APIs (optional)", false, {
+      ok: false,
+      detail: "not configured — reports will use keyless PageSpeed lab data only, no Search Console, Analytics or field Core Web Vitals",
+      fix: "In Claude Code: /seo google setup",
+    });
+  } else {
+    const on = google
+      ? ([["Search Console", google.searchConsole], ["GA4", google.analytics], ["CrUX", google.crux]] as const)
+          .map(([name, ok]) => `${name} ${ok ? "✓" : "–"}`)
+          .join(", ")
+      : "configured";
+    add("Google APIs (optional)", false, {
+      ok: true,
+      warn: Boolean(google && !google.analytics),
+      detail: on,
+      fix: google && !google.analytics ? "GA4 needs a property ID: add `ga4_property_id` to " + gcfg : undefined,
+    });
+  }
 
   const hasModules = existsSync(join(ROOT, "node_modules", "puppeteer"));
   add("PDF renderer (puppeteer)", true, hasModules
@@ -256,7 +332,7 @@ export function doctor(): DoctorResult {
     : { ok: false, detail: "node_modules missing", fix: "npm install" });
 
   const failed = checks.filter((c) => c.required && !c.ok);
-  return { ok: failed.length === 0, testedVersion: TESTED_VERSION, checks };
+  return { ok: failed.length === 0, testedVersion: TESTED_VERSION, claudeSeo, google, checks };
 }
 
 function print(result: DoctorResult) {

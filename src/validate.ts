@@ -1,5 +1,16 @@
 import { basename } from "node:path";
-import { ANCHORS, SCOPES, SEVERITIES, type Anchor, type Report, type Severity } from "./types.ts";
+import {
+  ANCHORS,
+  CATEGORIES,
+  DATA_SOURCES,
+  LIGHTHOUSE,
+  SCOPES,
+  SEVERITIES,
+  SOURCE_STATUSES,
+  type Anchor,
+  type Report,
+  type Severity,
+} from "./types.ts";
 
 /**
  * Throws if the report cannot be rendered.
@@ -25,6 +36,16 @@ export function validate(report: Report, path: string): void {
       problems.push(`\`meta.scope\` must be one of ${SCOPES.join(", ")}`);
     }
     if (scope === "page" && !pageUrl) problems.push("`meta.pageUrl` is required when `meta.scope` is \"page\"");
+    const { dataSources } = report.meta;
+    if (dataSources !== undefined) {
+      for (const [k, v] of Object.entries(dataSources)) {
+        if (!(DATA_SOURCES as readonly string[]).includes(k)) {
+          problems.push(`\`meta.dataSources.${k}\`: unknown source — use ${DATA_SOURCES.join(", ")}`);
+        } else if (!(SOURCE_STATUSES as readonly string[]).includes(v as string)) {
+          problems.push(`\`meta.dataSources.${k}\` must be one of ${SOURCE_STATUSES.join(", ")}`);
+        }
+      }
+    }
   }
   if (!Array.isArray(report.findings) || !report.findings.length) {
     problems.push("`findings` must be a non-empty array");
@@ -54,6 +75,16 @@ export function validate(report: Report, path: string): void {
     }
   }
 
+  if (report.scores !== undefined) {
+    for (const [k, v] of Object.entries(report.scores)) {
+      if (!(CATEGORIES as readonly string[]).includes(k)) {
+        problems.push(`\`scores.${k}\`: unknown category — use ${CATEGORIES.join(", ")}`);
+      } else if (typeof v !== "number" || v < 0 || v > 100) {
+        problems.push(`\`scores.${k}\` must be a number 0–100`);
+      }
+    }
+  }
+
   // Measured data is optional, but a missing number renders as "NaN" in a
   // client PDF rather than erroring — so check the shape here.
   const gsc = report.metrics?.searchConsole;
@@ -73,7 +104,7 @@ export function validate(report: Report, path: string): void {
     if (!["field", "lab"].includes(cwv.source)) {
       problems.push('`metrics.coreWebVitals.source` must be "field" or "lab"');
     }
-    for (const k of ["lcp", "inp", "cls", "performance"] as const) {
+    for (const k of ["lcp", "inp", "cls", ...LIGHTHOUSE] as const) {
       if (cwv[k] != null && typeof cwv[k] !== "number") problems.push(`\`metrics.coreWebVitals.${k}\` must be a number`);
     }
     if (typeof cwv.lcp === "number" && cwv.lcp < 50) {

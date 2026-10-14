@@ -1,3 +1,5 @@
+![SEO Audit Studio: white-label, multilingual SEO audit PDFs, powered by claude-seo](.github/cover.png)
+
 # SEO Audit Studio
 
 White-label, multilingual PDF SEO audit reports for agencies and consultants.

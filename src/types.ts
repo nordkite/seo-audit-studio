@@ -14,8 +14,27 @@ export const ANCHORS = ["summary", "breakdown", "findings", "roadmap", "notCover
 export const LEVELS = ["high", "medium", "low"] as const;
 /** What was audited: a whole site (`/new-audit`) or one URL (`/new-page-audit`). */
 export const SCOPES = ["site", "page"] as const;
+/** Measured-data sources an audit may draw on, in the order the report lists them. */
+export const DATA_SOURCES = ["searchConsole", "analytics", "crux", "pagespeed"] as const;
+/**
+ * `notConfigured`: no credentials on this machine. `noAccess`: credentials, but
+ * not for this site. `noData`: asked, nothing to return (CrUX for a low-traffic
+ * site). `failed`: the call errored.
+ */
+export const SOURCE_STATUSES = ["used", "notConfigured", "noAccess", "noData", "failed"] as const;
+/**
+ * claude-seo's scoring categories, in the order the report charts them. A full
+ * audit scores all seven; seo-page scores five (no performance, no AI search).
+ */
+export const CATEGORIES = ["technical", "content", "onPage", "schema", "performance", "aiSearch", "images"] as const;
+/** Lighthouse's four category scores, as PageSpeed Insights reports them. */
+export const LIGHTHOUSE = ["performance", "accessibility", "bestPractices", "seo"] as const;
 
 export type Lang = (typeof LANGS)[number];
+export type DataSource = (typeof DATA_SOURCES)[number];
+export type SourceStatus = (typeof SOURCE_STATUSES)[number];
+export type Category = (typeof CATEGORIES)[number];
+export type LighthouseScore = (typeof LIGHTHOUSE)[number];
 export type AuditScope = (typeof SCOPES)[number];
 export type Severity = (typeof SEVERITIES)[number];
 export type Anchor = (typeof ANCHORS)[number];
@@ -63,6 +82,8 @@ export interface Meta {
   pagesAnalyzed: number;
   score: number;
   stack?: string;
+  /** Which measured data the audit had. Fixed values, so nothing here is translated. */
+  dataSources?: Partial<Record<DataSource, SourceStatus>>;
   sourceLang?: Lang;
   translatedAt?: Partial<Record<Lang, string>>;
 }
@@ -88,7 +109,11 @@ export interface CoreWebVitalsMetrics {
   /** Milliseconds. */
   inp?: number | null;
   cls?: number | null;
+  /** Lighthouse scores, 0–100, from the same lab run. */
   performance?: number | null;
+  accessibility?: number | null;
+  bestPractices?: number | null;
+  seo?: number | null;
 }
 
 export interface Report {
@@ -100,6 +125,8 @@ export interface Report {
   /** Drops that line entirely, custom or default. */
   hideClosingNote?: boolean;
   findings: Finding[];
+  /** claude-seo's per-category scores, 0–100. Numbers only; labels come from i18n. */
+  scores?: Partial<Record<Category, number>>;
   roadmap?: ListItem[];
   notCovered?: ListItem[];
   sections?: Section[];

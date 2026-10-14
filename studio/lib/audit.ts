@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { validate } from "../../src/validate.ts";
-import { ROOT, backup, httpError, reportPath } from "./store.ts";
+import { ROOT, backup, httpError, reportPath, writeReport } from "./store.ts";
 import { keepAwake } from "./keep-awake.ts";
 import { CLAUDE_BIN } from "./translate/cli.ts";
 import type { AuditJob, AuditRequest, AuditStep, DoctorCheck, Preflight } from "./types.ts";
@@ -123,7 +123,8 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
   }
   const scope = req.scope === "page" ? "page" : "site";
   const url = normalizeUrl(req.url);
-  // The client name ends up inside the prompt, so keep it to one plain line.
+  // Never sent to the agent: claude-seo only needs the URL. finish() writes it
+  // into the report, so it goes on the cover exactly as typed.
   const clientName = String(req.clientName ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 120);
 
   const check = await preflight();
@@ -200,7 +201,7 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
 
   // The prompt goes in on stdin: --allowedTools takes a list and would swallow
   // a positional prompt after it.
-  proc.stdin.end(`/${command} ${url}${clientName ? ` ${clientName}` : ""}`);
+  proc.stdin.end(`/${command} ${url}`);
 
   if (proc.pid) {
     keepAwake(proc.pid).then((k) => {
@@ -299,7 +300,13 @@ function finish(job: AuditJob, before: Map<string, number>) {
   job.slug = slug;
   const path = join(REPORTS, `${slug}.json`);
   try {
-    validate(JSON.parse(readFileSync(path, "utf8")), path);
+    const report = JSON.parse(readFileSync(path, "utf8"));
+    validate(report, path);
+    // The agent derives a name from the site; the one typed in the Studio wins.
+    if (job.clientName && report.meta.clientName !== job.clientName) {
+      report.meta.clientName = job.clientName;
+      writeReport(slug, report);
+    }
     job.status = "done";
   } catch (e) {
     job.status = "failed";

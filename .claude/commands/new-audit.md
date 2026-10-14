@@ -8,6 +8,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Skill, Agent
 
 Audit a site end to end and emit `reports/<slug>.json`. Arguments: `$ARGUMENTS`
 
+The first argument is the URL. Everything after it, verbatim, is
+`meta.clientName`: do not split it, shorten it or read part of it as a page
+name. With nothing after the URL, derive the name from the site.
+
 The audit methodology comes from the **claude-seo** plugin, not from this repo.
 This repo owns the report: the schema, the translation, the PDF. Keeping the two
 apart is what lets claude-seo update without touching anything here.
@@ -27,50 +31,65 @@ apart is what lets claude-seo update without touching anything here.
    - If the `claude-seo plugin` check has `warn: true`, the installed version
      differs from the one these reports were tested against. Say so in one line,
      then continue.
-   - Note whether the `Google APIs (optional)` check passed. It decides step 2.
+   - Keep `claudeSeo` (the launcher for claude-seo's scripts) and `google`
+     (which of Search Console, Analytics and CrUX have credentials). `google`
+     is missing when Google APIs are not configured at all.
+   - Read **[audit/coverage.json](../../audit/coverage.json)**. It lists what
+     this audit must cover: the subagents claude-seo should run, and this
+     repo's supplements for claude-seo's gaps. Steps 1 and 2 follow it.
 
 1. **Run the claude-seo audit.** Use the claude-seo plugin's audit (the `/seo audit
    <url>` flow) for the methodology and the parallel subagents. Two overrides:
    do not generate claude-seo's own PDF, and do not offer `/seo google report`;
    this repo's renderer produces the report.
 
-   The audit already delegates to `seo-technical`, `seo-content`,
-   `seo-schema`, `seo-sitemap` and the rest of its subagents, plus `seo-local`
-   when it detects a local business. Do not run those again: it repeats the
-   same checks and only produces duplicate findings to merge. The one gap is
-   **`seo-hreflang`**, which the full audit never runs. If the site serves more
-   than one language or region, run it as well.
+   - **Do not spawn the subagents yourself.** The audit spawns those in
+     `subagents.site` on its own. Running them again repeats the same checks
+     and only produces duplicate findings to merge.
+   - **Check coverage afterwards.** Every subagent in `subagents.site.always`
+     must have run, and each one in `subagents.site.when` must have run when its
+     condition held. For any that did not, or that failed or was denied, add a
+     `notCovered` entry naming what it checks, and say so in `method`. Never
+     let a check that did not run read as a pass.
+   - **Run every supplement** in `supplements` whose `scope` includes `site`
+     and whose `when` holds, using its `run` and `target` for site scope.
+     Replace `"$CLAUDE_SEO"` with the `claudeSeo` path from the preflight. A
+     supplement's results win over any subagent claim on the same check.
+   - **`social-tags`** returns `issues`, each listing the affected URLs. Merge
+     them into one social-tags finding, an `opportunity` unless share images are
+     broken. If `issues` is empty, add a `pass`.
+   - **`lighthouse`** feeds `metrics.coreWebVitals` when CrUX field data is
+     unavailable (step 2). Its four Lighthouse scores (performance,
+     accessibility, best practices, SEO) go in `coreWebVitals` either way; the
+     report draws them as gauges.
 
-   Then run `node scripts/check-social.ts <url> --json`. It checks Open
-   Graph and X/Twitter Card tags on every sitemap URL, fetched as Twitterbot,
-   and covers a gap in claude-seo 2.4.2, which never checks `twitter:image`.
-   Without that tag X shows shared links with no picture. Each entry in
-   `issues` lists the affected URLs. Merge them into one social-tags finding, an
-   `opportunity` unless share images are broken. Use the script's results over
-   any subagent claim about these tags. If `issues` is empty, add a `pass`.
+2. **Collect measured data** for `metrics`, and record every source in
+   `meta.dataSources` (see Field rules) whether it was used or not.
 
-2. **Collect measured data** for `metrics`. Only when the Google APIs check
-   passed. Use claude-seo's `seo-google` skill:
-
-   - **Search Console.** Find the property for this site among the account's
-     sites (`sc-domain:<domain>` or a URL prefix). Pull the last 28 complete days
-     of clicks, impressions, CTR and average position, plus the top 10 queries by
-     clicks. If the site is not in the account, skip `searchConsole` and add a
-     `notCovered` entry: the client can grant access by adding the service
-     account's email to their property as a Restricted user.
-   - **Core Web Vitals.** Mobile, homepage. Use CrUX field data when the origin
-     has it (`source: "field"`, p75). Otherwise use the PageSpeed Insights lab
-     run (`source: "lab"`). Never label lab numbers as field data.
-
-   Without Google APIs, run PageSpeed Insights through claude-seo only if it
-   works with no key. If that also fails, leave `metrics` out and say so in
-   `method` and `notCovered`.
+   - **Search Console.** Only when `google.searchConsole` is true. Use
+     claude-seo's `seo-google` skill. Find the property for this site among the
+     account's sites (`sc-domain:<domain>` or a URL prefix). Pull the last 28
+     complete days of clicks, impressions, CTR and average position, plus the
+     top 10 queries by clicks. If the site is not in the account, skip
+     `searchConsole` and add a `notCovered` entry: the client can grant access
+     by adding the service account's email to their property as a Restricted
+     user.
+   - **Google Analytics 4.** Only when `google.analytics` is true, and only if
+     the configured GA4 property belongs to this site. Record the status; GA4
+     numbers do not go into the report yet.
+   - **Core Web Vitals.** Mobile, homepage. Use CrUX field data when
+     `google.crux` is true and the origin has data (`source: "field"`, p75).
+     Otherwise use the `lighthouse` supplement's lab run (`source: "lab"`).
+     Never label lab numbers as field data. If both fail, leave
+     `coreWebVitals` out and say so in `method` and `notCovered`.
 
 3. **Map the claude-seo results into the schema below.** Rules:
 
    - **Severity.** claude-seo Critical → `critical`. High → `warning`. Medium
      and Low → `opportunity`. Checks it verified as correct → `pass`.
-   - **Score.** `meta.score` is claude-seo's SEO Health Score (0–100).
+   - **Score.** `meta.score` is claude-seo's SEO Health Score (0–100), and
+     `scores` holds its per-category scores exactly as claude-seo gave them.
+     The report charts them. Leave out a category claude-seo did not score.
    - **One finding per issue.** Several subagents often report the same problem.
      Merge them into one finding and keep the strongest evidence.
    - **Evidence.** Every non-pass finding needs evidence a reader could check: a
@@ -86,8 +105,9 @@ apart is what lets claude-seo update without touching anything here.
    `node src/generate.ts <slug>`: it validates the file and renders the English
    PDF. Fix any validation error it reports.
 
-5. **Report back** the score, finding counts by severity, whether `metrics` came
-   from field or lab data, and the next steps: `/translate-report <slug> all`,
+5. **Report back** the score, finding counts by severity, `meta.dataSources`,
+   whether `metrics` came from field or lab data, any subagent or supplement
+   that did not run, and the next steps: `/translate-report <slug> all`,
    then `/seo-report <slug> --all`.
 
 ## Schema
@@ -104,6 +124,12 @@ apart is what lets claude-seo update without touching anything here.
     "pagesAnalyzed": 17,
     "score": 54,                   // 0-100
     "stack": "WordPress 7.0.2 · …",// optional, one line
+    "dataSources": {               // every source, used or not; see Field rules
+      "searchConsole": "noAccess",
+      "analytics": "notConfigured",
+      "crux": "noData",
+      "pagespeed": "used"
+    },
     "sourceLang": "en"
   },
   "summary": { "en": "…" },        // 3-5 sentences, executive register
@@ -128,8 +154,20 @@ apart is what lets claude-seo update without touching anything here.
       "lcp": 2830,                 // ms
       "inp": 160,                  // ms — field only; omit for lab
       "cls": 0.04,
-      "performance": 64            // optional Lighthouse score 0-100
+      "performance": 64,           // Lighthouse scores 0-100, same lab run
+      "accessibility": 91,
+      "bestPractices": 100,
+      "seo": 85
     }
+  },
+  "scores": {                      // claude-seo's category scores, 0-100
+    "technical": 62,               // technical | content | onPage | schema |
+    "content": 48,                 // performance | aiSearch | images
+    "onPage": 70,
+    "schema": 35,
+    "performance": 55,
+    "aiSearch": 60,
+    "images": 65
   },
   "findings": [
     {
@@ -177,6 +215,18 @@ apart is what lets claude-seo update without touching anything here.
   language, so nothing in `metrics` is ever translated. Report what the API
   returned; do not round before writing it. A metric that is measured badly also
   belongs in `findings` (a poor LCP is a finding), with the number as evidence.
+- **`meta.dataSources`**: one entry for each of `searchConsole`, `analytics`,
+  `crux` and `pagespeed`. The report prints them as a table under Method, so a
+  client can tell "no Search Console numbers because there was no access" from
+  "nothing to report". Values:
+  - `used`: the report contains its data.
+  - `notConfigured`: no credentials for it on this machine (the preflight's
+    `google` is missing or says `false`).
+  - `noAccess`: credentials work, but not for this site (the site is not in
+    the Search Console account, or the GA4 property is another site's).
+  - `noData`: asked successfully, nothing came back (CrUX for a low-traffic
+    origin).
+  - `failed`: the call errored. Put the error in `method`.
 - **`sections`**: optional, for evidence a finding card cannot carry: a SERP
   screenshot, a Lighthouse trace, a crawl diagram. Images live under
   `assets/<slug>/` and are inlined as data URIs at render time, so keep them

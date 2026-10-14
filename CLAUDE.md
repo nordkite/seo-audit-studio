@@ -27,15 +27,26 @@ runtime is missing, rather than quietly running a weaker audit.
 `config.claudeSeoVersion` in `package.json` is the release reports were last
 verified against.
 
-**One deliberate exception: `scripts/check-social.ts`.** claude-seo 2.4.2 never
-checks `twitter:image`. Its `seo-page` checklist stops at card, title and
-description, and the full audit has no social check at all. Without
-`twitter:image`, X shows shared links with no picture even when `og:image` is
-set. `/new-audit` runs the script after the claude-seo audit, and
-`/new-page-audit` runs it with `--page` on the one URL. It is a
-deterministic script rather than a skill, so it does not compete with
-claude-seo for prompts. Delete it, and its step in `/new-audit`, once claude-seo
-checks these tags itself.
+**What an audit must cover lives in `audit/coverage.json`**, read by both audit
+commands. It holds two lists:
+
+- `subagents`: the claude-seo subagents each scope must run. A site audit only
+  checks claude-seo spawned them. A page audit spawns them itself, because
+  `seo-page` is a single checklist with no subagents. A subagent that did not
+  run goes in `notCovered`, never silently.
+- `supplements`: this repo's additions for claude-seo's gaps (hreflang, images,
+  social tags, keyless Lighthouse), each with the `gap` it fills and when to
+  remove it. A supplement is a claude-seo skill or a deterministic script, never
+  a skill under `.claude/skills/`. Add new gap-fillers here, not as prose in a
+  command file.
+
+`scripts/check-social.ts` is the one supplement this repo implements itself:
+claude-seo 2.4.2 never checks `twitter:image`, and without it X shows shared
+links with no picture even when `og:image` is set.
+
+`npm run doctor` warns when `coverage.json`'s `claudeSeoVersion` differs from
+the installed claude-seo. When it does, re-check each supplement's `gap` and
+delete the ones claude-seo now covers.
 
 ## Branding is configuration, not code
 
@@ -105,6 +116,7 @@ them. Run `npm run typecheck` after changing either.
 | `brand.example/` | template for `brand/`, copied by `npm run setup` |
 | `scripts/doctor.ts`, `scripts/setup.ts` | environment check and setup. Node built-ins only, so they run before `npm install` |
 | `studio/lib/types.ts` | Studio API request/response shapes, shared with the client |
+| `audit/coverage.json` | subagents each audit scope must run, and supplements for claude-seo's gaps (see above) |
 | `scripts/check-social.ts` | Open Graph + X/Twitter Card check on every sitemap URL. Fills a claude-seo gap (see above) |
 | `.claude/settings.json` | declares the claude-seo plugin for this project |
 

@@ -82,6 +82,41 @@
     "devices": {
       "mobile": "Мобильные",
       "desktop": "Десктоп"
+    },
+    "lighthouseTitle": "Оценки Lighthouse",
+    "lighthouse": {
+      "performance": "Производительность",
+      "accessibility": "Доступность",
+      "bestPractices": "Рекомендации",
+      "seo": "SEO"
     }
+  },
+  "dataSources": {
+    "title": "Источники данных",
+    "sources": {
+      "searchConsole": "Google Search Console",
+      "analytics": "Google Analytics 4",
+      "crux": "CrUX (Core Web Vitals реальных пользователей)",
+      "pagespeed": "PageSpeed Insights (лабораторный тест)"
+    },
+    "statuses": {
+      "used": "Использовано",
+      "notConfigured": "Не подключено",
+      "noAccess": "Нет доступа к сайту",
+      "noData": "Нет данных по сайту",
+      "failed": "Ошибка запроса"
+    }
+  },
+  "scores": {
+    "title": "Оценка по категориям"
+  },
+  "categories": {
+    "technical": "Техническое SEO",
+    "content": "Качество контента",
+    "onPage": "Внутренняя оптимизация",
+    "schema": "Структурированные данные",
+    "performance": "Производительность",
+    "aiSearch": "Готовность к AI-поиску",
+    "images": "Изображения"
   }
 }

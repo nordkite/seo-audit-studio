@@ -3,10 +3,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Meta, Severity } from "@/lib/types";
-import { SEVERITY_CLASS, SEVERITY_LABEL, scoreBand } from "@/lib/report";
-
-const DIAL_TONE = (score: number) =>
-  score >= 90 ? "#4ec98a" : score >= 70 ? "#8fd0a8" : score >= 50 ? "#e8b04b" : "#e2705f";
+import { SEVERITY_CLASS, SEVERITY_LABEL, scoreBand, scoreTone } from "@/lib/report";
 
 function Dial({ score }: { score: number }) {
   const C = 2 * Math.PI * 45;
@@ -21,7 +18,7 @@ function Dial({ score }: { score: number }) {
         fill="none"
         strokeWidth="9"
         strokeLinecap="round"
-        stroke={DIAL_TONE(score)}
+        stroke={scoreTone(score)}
         strokeDasharray={`${filled.toFixed(2)} ${(C - filled).toFixed(2)}`}
       />
     </svg>

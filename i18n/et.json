@@ -82,6 +82,41 @@
     "devices": {
       "mobile": "Mobiil",
       "desktop": "Lauaarvuti"
+    },
+    "lighthouseTitle": "Lighthouse'i skoorid",
+    "lighthouse": {
+      "performance": "Jõudlus",
+      "accessibility": "Ligipääsetavus",
+      "bestPractices": "Parimad tavad",
+      "seo": "SEO"
     }
+  },
+  "dataSources": {
+    "title": "Andmeallikad",
+    "sources": {
+      "searchConsole": "Google Search Console",
+      "analytics": "Google Analytics 4",
+      "crux": "CrUX (päris kasutajate Core Web Vitals)",
+      "pagespeed": "PageSpeed Insights (laborimõõtmine)"
+    },
+    "statuses": {
+      "used": "Kasutatud",
+      "notConfigured": "Pole ühendatud",
+      "noAccess": "Saidile puudub juurdepääs",
+      "noData": "Saidi kohta andmed puuduvad",
+      "failed": "Päring ebaõnnestus"
+    }
+  },
+  "scores": {
+    "title": "Skoor kategooriate kaupa"
+  },
+  "categories": {
+    "technical": "Tehniline SEO",
+    "content": "Sisu kvaliteet",
+    "onPage": "Lehesisene SEO",
+    "schema": "Struktureeritud andmed",
+    "performance": "Jõudlus",
+    "aiSearch": "Valmisolek AI-otsinguks",
+    "images": "Pildid"
   }
 }
