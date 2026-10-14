@@ -161,7 +161,7 @@ function brandDoc(): BrandDoc {
 
 /**
  * brand.json with an edited theme in place of its own, validated. Throws a 400
- * listing the problems rather than letting a bad colour reach the renderer.
+ * listing the problems rather than letting a bad color reach the renderer.
  */
 function brandWith(theme: BrandTheme) {
   const { dir, file, isExample } = brandSource();

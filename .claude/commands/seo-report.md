@@ -43,7 +43,7 @@ pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-<slug>-en-*.pdf | head -1)"
 Then Read the PNGs. Check specifically:
 - no finding card split across a page boundary
 - running header and footer present and not clipped
-- background colours present (if they vanished, `printBackground` or
+- background colors present (if they vanished, `printBackground` or
   `print-color-adjust` regressed)
 
 Delete the `_check-*.png` and `*.html` scratch files when done.

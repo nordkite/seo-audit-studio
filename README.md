@@ -5,7 +5,7 @@
 White-label, multilingual PDF SEO audit reports for agencies and consultants.
 Audit data lives as structured JSON; the PDF is a pure function of
 `(report, language)`, so the same audit renders in English, Estonian and Russian
-without being re-run. Your name, logo and colour go on every page, configured
+without being re-run. Your name, logo and color go on every page, configured
 once in `brand/`.
 
 ```bash
@@ -42,7 +42,7 @@ creates it from the tracked template `brand.example/`:
 
 ```
 brand/
-  brand.json         name, website, email, phone, logo file names, colour, font
+  brand.json         name, website, email, phone, logo file names, color, font
   logo.svg           for white pages
   logo-on-dark.svg   for dark backgrounds (optional)
   fonts/             your own typefaces (optional, see fonts/README.md)
@@ -64,10 +64,10 @@ brand/
 ```
 
 Only `name` is required. A logo is a file in `brand/` or an `https://` URL, and
-can be SVG, PNG, JPG, WebP or GIF. The primary colour is the accent; its lighter tints
+can be SVG, PNG, JPG, WebP or GIF. The primary color is the accent; its lighter tints
 are derived from it. `cover` and `body` set each surface's background, text
-colour and logo variant, and every grey in the report is mixed from those two
-colours. The Studio's palette button edits them with a live preview. `font`
+color and logo variant, and every grey in the report is mixed from those two
+colors. The Studio's palette button edits them with a live preview. `font`
 picks a typeface from `fonts/`. The PDF's author,
 creator and producer metadata are set to `name`, so nothing in the file names
 this tool. Every field is described in
@@ -121,13 +121,20 @@ npm run report -- --help
 
 ## Workflow
 
-Three slash commands cover the full cycle:
+Audit, translate, render. Each step is one slash command:
 
 | Command | Does |
 |---|---|
-| `/new-audit <url>` | Audits a site with claude-seo, writes `reports/<slug>.json` (English) |
+| `/new-audit <url>` | Audits a whole site with claude-seo, writes `reports/<slug>.json` (English) |
+| `/new-page-audit <url>` | Audits one page instead, writes `reports/<site-slug>--<page-slug>.json` (English) |
 | `/translate-report <slug> all` | Fills in `et` and `ru`, cached into the same file |
 | `/seo-report <slug> --all` | Renders the PDFs |
+
+Both audit commands take an optional client name after the URL. A page audit
+runs claude-seo's `seo-page` checklist plus the page-scope subagents listed in
+[audit/coverage.json](audit/coverage.json), and does not crawl the rest of the
+site. Its score is a single-page score, not comparable to a site audit's Health
+Score. Site-wide issues it cannot check from that page go under "not covered".
 
 Translation is cached into the report JSON, so it is paid once per report rather
 than once per render. Adding a fourth language later means translating the JSON —
@@ -220,10 +227,12 @@ studio/server.ts          Studio API — node:http
 studio/lib/translate/     translation providers behind one interface
 studio/client/            Studio UI — React + Tailwind + shadcn/ui
 brand.example/            white-label template, copied to brand/ (git-ignored) by setup
-scripts/doctor.ts         environment check, also the /new-audit preflight
+scripts/doctor.ts         environment check, also the audit commands' preflight
 scripts/setup.ts          npm install + claude-seo plugin install + doctor
+scripts/check-social.ts   Open Graph + X/Twitter Card check, fills a claude-seo gap
+audit/coverage.json       subagents and supplements each audit scope must run
 .claude/settings.json     declares the claude-seo plugin for this project
-.claude/commands/         /new-audit, /translate-report, /seo-report
+.claude/commands/         /new-audit, /new-page-audit, /translate-report, /seo-report
 ```
 
 ### Measured data
@@ -285,7 +294,7 @@ folio'd.
 ### Print gotchas already handled
 
 - `printBackground: true` **and** `print-color-adjust: exact` — Chrome drops
-  background colours without both, which silently kills all severity colour-coding
+  background colors without both, which silently kills all severity color-coding
 - `break-inside: avoid` on finding cards, so no finding splits across pages
 - Header/footer templates render in an isolated context: no page CSS, no external
   assets, default font-size ~0. Everything in `runningTemplates()` is inlined, and

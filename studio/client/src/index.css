@@ -38,7 +38,7 @@
      Deliberately NOT the hexes from templates/report.css: those are print inks
      mixed for white paper, and they go muddy on a dark screen. These are stock
      Tailwind steps that flip with the theme below, so the Studio reads as a
-     normal shadcn app. The PDF's colours are unaffected — different stylesheet,
+     normal shadcn app. The PDF's colors are unaffected — different stylesheet,
      different document. */
   --color-sev-critical: var(--sev-critical);
   --color-sev-warning: var(--sev-warning);

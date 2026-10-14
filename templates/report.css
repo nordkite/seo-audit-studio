@@ -5,19 +5,19 @@
    no fluid scaling — this is paper, not a screen.
 
    Visual language: neutral greys and hairline borders carry the structure;
-   colour is reserved for status (severity, ratings) and one brand accent.
+   color is reserved for status (severity, ratings) and one brand accent.
    ========================================================================== */
 
 :root {
   /* --brand, --paper, --ink and --accent are overridden per render from
      brand/brand.json (see shell() in src/render.ts): --paper and --ink are the
-     background and text colour of whichever surface this document is, the
+     background and text color of whichever surface this document is, the
      cover or the body. Everything below derives from them, so a brand sets a
-     handful of colours and a dark surface needs no restyling. */
+     handful of colors and a dark surface needs no restyling. */
   --brand: #293451;
   --paper: #ffffff;
   --ink: #121212;
-  /* The brand colour where it reads on --paper, otherwise --ink. */
+  /* The brand color where it reads on --paper, otherwise --ink. */
   --accent: var(--brand);
 
   --brand-100: color-mix(in srgb, var(--brand) 12%, var(--paper));
@@ -73,7 +73,7 @@
 }
 
 html {
-  /* Chrome discards background colours in PDF unless this is set explicitly,
+  /* Chrome discards background colors in PDF unless this is set explicitly,
      even with printBackground: true on some element types. */
   -webkit-print-color-adjust: exact;
   print-color-adjust: exact;
@@ -138,7 +138,7 @@ body {
   flex-direction: column;
   overflow: hidden;
 
-  /* Surface colours the cover's children read; a dark cover swaps some. */
+  /* Surface colors the cover's children read; a dark cover swaps some. */
   --c-ink: var(--ink);
   --c-muted: var(--ink-muted);
   --c-faint: var(--ink-faint);
@@ -687,7 +687,7 @@ code,
 }
 
 /* --- Charts ---------------------------------------------------------------
-   Drawn as HTML and inline SVG, coloured from the status tones and the
+   Drawn as HTML and inline SVG, colored from the status tones and the
    ink/paper mixes above, so they follow the brand's surface like everything
    else. */
 

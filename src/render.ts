@@ -340,7 +340,7 @@ function searchConsoleSection(gsc: SearchConsoleMetrics, s: Strings, locale: str
     </section>`;
 }
 
-/** Lighthouse's own colour bands: 90+ green, 50–89 orange, below 50 red. */
+/** Lighthouse's own color bands: 90+ green, 50–89 orange, below 50 red. */
 function lighthouseTone(score: number): string {
   return score >= 90 ? "var(--pass)" : score >= 50 ? "var(--warning)" : "var(--critical)";
 }
@@ -433,7 +433,7 @@ function coreWebVitalsSection(cwv: CoreWebVitalsMetrics, s: Strings, locale: str
     </section>`;
 }
 
-/** claude-seo's category scores as bars, coloured by the same bands as the cover dial. */
+/** claude-seo's category scores as bars, colored by the same bands as the cover dial. */
 function categoryScores(scores: Report["scores"], s: Strings): string {
   const rows = CATEGORIES.filter((c) => typeof scores?.[c] === "number")
     .map((c) => {
@@ -490,7 +490,7 @@ function fontStack(brand: Brand): string {
 }
 
 /**
- * The brand colour, the surface's colours and the font go in as custom
+ * The brand color, the surface's colors and the font go in as custom
  * properties. report.css derives every grey, rule and tint from them, so a
  * dark surface needs no rules of its own beyond .surface--dark.
  */
@@ -535,7 +535,7 @@ function closingNote(report: Report, lang: Lang, fallback: string): string {
  * Cover page — rendered as its own zero-margin document so it bleeds.
  *
  * `brand` defaults to brand.json; the Studio passes an unsaved edit of it to
- * preview colours before they are written.
+ * preview colors before they are written.
  */
 export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand()): string {
   const s = loadStrings(lang);
@@ -768,7 +768,7 @@ export function runningTemplates(
   const s = loadStrings(lang);
   const m = report.meta;
   // These templates do not see the body page's fonts or custom properties, so
-  // the brand font is inlined again into each and the colours spelled out.
+  // the brand font is inlined again into each and the colors spelled out.
   // Data URIs are the one kind of resource they load.
   const font = fontStack(brand).replace(/"/g, "'");
   const fontCss = brand.font ? `<style>${brand.font.css}</style>` : "";
@@ -776,7 +776,7 @@ export function runningTemplates(
   const faint = `color-mix(in srgb, ${text} 63%, ${background})`;
   const base = `font-family: ${font}; font-size: 7pt; color: ${faint};`;
   // Chrome leaves page margins unpainted whatever the body's background, so a
-  // coloured body would sit between two white bands. Each template paints its
+  // colored body would sit between two white bands. Each template paints its
   // own band. The templates are laid over the whole page, above the content, so
   // the paint must stop at the margin. White needs none.
   const paint = (edge: "top" | "bottom") =>

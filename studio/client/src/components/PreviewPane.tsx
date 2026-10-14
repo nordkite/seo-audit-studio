@@ -132,7 +132,7 @@ export function PreviewPane({ report, lang, langPicker }: Props) {
           <Button
             variant="ghost"
             size="sm"
-            title={`${part === "cover" ? "Cover" : "Body"} colours and logo`}
+            title={`${part === "cover" ? "Cover" : "Body"} colors and logo`}
             aria-pressed={themeOpen}
             disabled={!brand}
             onClick={() => setThemeOpen((o) => !o)}

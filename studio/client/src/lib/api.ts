@@ -108,7 +108,7 @@ export const api = {
 
   /**
    * Renders the editor's live buffer, so the preview never lags a save behind.
-   * A `theme` previews brand colours that have not been saved yet.
+   * A `theme` previews brand colors that have not been saved yet.
    */
   preview: async (lang: Lang, report: Report, part: "body" | "cover", theme?: BrandTheme) => {
     const res = await post(`/api/preview/${lang}`, { report, part, theme });

@@ -1,7 +1,7 @@
 # Brand
 
 Everything that puts your company on a report: name, contact details, logo and
-colour. `npm run setup` copies this folder to `brand/`. Edit the copy, not this
+color. `npm run setup` copies this folder to `brand/`. Edit the copy, not this
 template. `brand/` is git-ignored, so your branding never ends up in the shared
 repo and pulling updates never conflicts with it.
 
@@ -15,19 +15,19 @@ repo and pulling updates never conflicts with it.
 | `email`, `phone` | no | Printed on the last page. Leave empty to omit |
 | `logo` | no | Logo for light surfaces. Without one, `name` is set in type |
 | `logoOnDark` | no | Logo for dark surfaces. Without one, `logo` is turned solid white where a surface asks for `logoOnDark` |
-| `colors.primary` | no | The accent: cover kicker and roadmap steps. 6-digit hex. Lighter tints are derived from it. On a background it would not read on, the accent falls back to that surface's text colour |
+| `colors.primary` | no | The accent: cover kicker and roadmap steps. 6-digit hex. Lighter tints are derived from it. On a background it would not read on, the accent falls back to that surface's text color |
 | `font` | no | Typeface for the whole report, by folder name under `fonts/`: `"manrope"`. Without it, the system sans. See [fonts/README.md](../fonts/README.md) |
 | `cover` | no | The cover page's surface, see below |
 | `body` | no | Every page after the cover, see below |
 
-## Cover and body colours
+## Cover and body colors
 
 `cover` and `body` take the same three optional fields:
 
 | Field | Default | |
 |---|---|---|
 | `background` | `#ffffff` | 6-digit hex |
-| `text` | `#121212` | 6-digit hex. Secondary text, rules, card fills and tints are all mixed from `text` and `background`, so these two colours restyle the whole surface |
+| `text` | `#121212` | 6-digit hex. Secondary text, rules, card fills and tints are all mixed from `text` and `background`, so these two colors restyle the whole surface |
 | `logo` | by background | `"logo"` or `"logoOnDark"`. Left out, a dark background gets `logoOnDark` and a light one `logo`. On the body this is the logo on the last page |
 
 ```json
@@ -39,7 +39,7 @@ The older shorthands still work: `"cover": "light"` is the default, and
 `"cover": "brand"` is a cover in `colors.primary` with white text.
 
 The Studio edits these too: the palette button above the preview shows the
-colours of whichever part, Body or Cover, is open. Changes preview at once and
+colors of whichever part, Body or Cover, is open. Changes preview at once and
 are written to `brand.json` only when you click **Save to brand.json**. That
 replaces `colors.primary`, `cover` and `body`, and leaves every other field as
 it is.
@@ -54,7 +54,7 @@ time, so rendering needs the network. Supported types: SVG, PNG, JPG, WebP, GIF.
   1200 px wide.
 - **Wide logos fit best.** The cover gives the logo 48 × 14 mm and the last page
   34 × 11 mm. A square icon is scaled down to fit the height.
-- **Supply `logoOnDark`** if your logo has more than one colour. Turning a
+- **Supply `logoOnDark`** if your logo has more than one color. Turning a
   logo white flattens it to a silhouette and may print slightly softer.
 
 ## A brand typeface

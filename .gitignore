@@ -5,7 +5,7 @@ out/
 .studio-backups/
 studio/client/dist/
 
-# Your own branding (name, logo, colours). Template: brand.example/
+# Your own branding (name, logo, colors). Template: brand.example/
 brand/
 .studio-audits/
 

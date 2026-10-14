@@ -1,5 +1,5 @@
 /**
- * Surface colours: the background, text colour and logo of the cover and of the
+ * Surface colors: the background, text color and logo of the cover and of the
  * body pages, as set in brand.json and edited by the Studio.
  *
  * No Node imports: the Studio client bundles this file to show the same
@@ -32,7 +32,7 @@ export interface BrandTheme {
 export interface Surface {
   background: string;
   text: string;
-  /** The primary colour where it reads on `background`, otherwise `text`. */
+  /** The primary color where it reads on `background`, otherwise `text`. */
   accent: string;
   dark: boolean;
   logo: LogoVariant;
@@ -44,7 +44,7 @@ export const DEFAULT_TEXT = "#121212";
 
 export const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
 
-/** WCAG relative luminance of a 6-digit hex colour. */
+/** WCAG relative luminance of a 6-digit hex color. */
 function luminance(hex: string): number {
   const [r, g, b] = [1, 3, 5].map((i) => {
     const c = parseInt(hex.slice(i, i + 2), 16) / 255;
@@ -61,7 +61,7 @@ export function contrast(a: string, b: string): number {
 /** Dark when white text would read better on it than black. */
 export const isDark = (bg: string): boolean => contrast(bg, "#ffffff") > contrast(bg, "#000000");
 
-/** Fills the gaps in a surface config. Assumes its colours are valid hex. */
+/** Fills the gaps in a surface config. Assumes its colors are valid hex. */
 export function resolveSurface(cfg: SurfaceConfig, primary: string): Surface {
   const background = cfg.background ?? DEFAULT_BACKGROUND;
   const text = cfg.text ?? DEFAULT_TEXT;

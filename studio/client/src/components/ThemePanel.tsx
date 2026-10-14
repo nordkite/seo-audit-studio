@@ -27,8 +27,8 @@ const LOGO_LABELS: Record<LogoVariant, string> = {
 };
 
 /**
- * Colours and logo for the surface the preview is showing, plus the primary
- * colour both share. Edits are a draft: the preview shows them at once, and
+ * Colors and logo for the surface the preview is showing, plus the primary
+ * color both share. Edits are a draft: the preview shows them at once, and
  * nothing reaches brand/brand.json until Save.
  */
 export function ThemePanel({
@@ -105,7 +105,7 @@ export function ThemePanel({
           {missingDark
             ? "No logoOnDark in brand.json, so the logo is turned white."
             : resolved.accent !== draft.primary
-              ? "Primary is too close to this background, so accents use the text colour."
+              ? "Primary is too close to this background, so accents use the text color."
               : `Saves to ${saved.isExample ? "brand/brand.json (run npm run setup first)" : "brand.json"}`}
         </span>
         {part === "cover" && surface.background !== draft.primary && (
@@ -129,7 +129,7 @@ export function ThemePanel({
   );
 }
 
-/** A swatch for picking plus a hex field for pasting an exact brand colour. */
+/** A swatch for picking plus a hex field for pasting an exact brand color. */
 function ColorField({
   label,
   value,
@@ -140,7 +140,7 @@ function ColorField({
   onChange: (hex: string) => void;
 }) {
   // The text field holds what is typed; only a complete hex reaches the draft,
-  // so the preview never renders a half-typed colour.
+  // so the preview never renders a half-typed color.
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
 

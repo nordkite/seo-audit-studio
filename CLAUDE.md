@@ -50,13 +50,13 @@ delete the ones claude-seo now covers.
 
 ## Branding is configuration, not code
 
-Whose name, logo and colour go on a report comes from `brand/brand.json`, loaded
+Whose name, logo and color go on a report comes from `brand/brand.json`, loaded
 by `src/brand.ts`. `brand/` is git-ignored; `brand.example/` is the tracked
-template. Never hard-code a company name, URL, logo or brand colour in
+template. Never hard-code a company name, URL, logo or brand color in
 `src/`, `templates/` or the Studio. Add a field to `BrandConfig` instead, and
 document it in `brand.example/README.md`. The typeface is brand config too
 (`font`), so never hard-code a font family in `report.css`; it reads
-`--font-sans`. The same goes for surface colours: `brand.json`'s `cover` and
+`--font-sans`. The same goes for surface colors: `brand.json`'s `cover` and
 `body` set `--paper` and `--ink` per document, and every grey, rule and tint in
 `report.css` is a `color-mix()` of the two. Never add a literal grey or white
 there, or a dark surface breaks. The PDF's author/creator/producer
@@ -99,7 +99,7 @@ them. Run `npm run typecheck` after changing either.
 | `templates/report.css` | print stylesheet |
 | `src/types.ts` | report schema and its constants (langs, severities, anchors) |
 | `src/brand.ts` | loads and validates `brand/brand.json` |
-| `src/theme.ts` | cover/body surface colours and logo choice. No Node imports, so the Studio client shares it |
+| `src/theme.ts` | cover/body surface colors and logo choice. No Node imports, so the Studio client shares it |
 | `src/render.ts` | `(report, lang)` → HTML |
 | `src/pdf.ts` | HTML → PDF, two-pass cover+body merge |
 | `src/validate.ts` | report rules, shared by the CLI and the Studio |
@@ -222,7 +222,7 @@ pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-example-com--home-en-*.pdf 
 ```
 
 Check: no finding split across a page boundary, header/footer present and
-unclipped, background colours intact.
+unclipped, background colors intact.
 
 ## Translation
 

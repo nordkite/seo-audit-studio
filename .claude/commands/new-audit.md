@@ -210,7 +210,7 @@ apart is what lets claude-seo update without touching anything here.
 - **`roadmap`**: ordered by what to do first, cheapest-highest-leverage first.
   Say plainly which items are configuration and which actually move rankings.
 - **`score`**: 90+ excellent, 70–89 good, 50–69 needs significant work, <50
-  critical. The cover dial colour follows these bands.
+  critical. The cover dial color follows these bands.
 - **`metrics`**: numbers only. The renderer supplies the labels in each
   language, so nothing in `metrics` is ever translated. Report what the API
   returned; do not round before writing it. A metric that is measured badly also

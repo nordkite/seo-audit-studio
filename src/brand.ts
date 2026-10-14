@@ -12,7 +12,7 @@ import {
 } from "./theme.ts";
 
 /**
- * White-label configuration: whose name, logo and colour go on the report.
+ * White-label configuration: whose name, logo and color go on the report.
  *
  * Lives in `brand/brand.json`, beside the logo files it names. `brand/` is
  * git-ignored so each user's identity stays out of the shared repo; the tracked
@@ -21,7 +21,7 @@ import {
  * from one install.
  *
  * Read on every render rather than cached, so the Studio preview picks up an
- * edited logo or colour without a restart.
+ * edited logo or color without a restart.
  */
 
 const ROOT = join(import.meta.dirname, "..");
@@ -47,11 +47,11 @@ export interface BrandConfig {
    */
   font?: string;
   /**
-   * Background, text colour and logo of the cover. The older shorthands still
-   * work: "light" is the default, "brand" sets the cover on the primary colour.
+   * Background, text color and logo of the cover. The older shorthands still
+   * work: "light" is the default, "brand" sets the cover on the primary color.
    */
   cover?: SurfaceConfig | LegacyCover;
-  /** Background, text colour and logo of the body pages. */
+  /** Background, text color and logo of the body pages. */
   body?: SurfaceConfig;
 }
 
@@ -264,7 +264,7 @@ function checkSurface(raw: unknown, field: string, problems: string[]): void {
   const s = raw as Record<string, unknown>;
   for (const key of ["background", "text"]) {
     if (s[key] !== undefined && !isHex(s[key])) {
-      problems.push(`\`${field}.${key}\` must be a 6-digit hex colour, like #ffffff`);
+      problems.push(`\`${field}.${key}\` must be a 6-digit hex color, like #ffffff`);
     }
   }
   if (s.logo !== undefined && !LOGO_VARIANTS.includes(s.logo as never)) {
@@ -292,7 +292,7 @@ export function resolveBrand(
 
   const primary = cfg.colors?.primary ?? DEFAULT_PRIMARY;
   if (!isHex(primary)) {
-    problems.push("`colors.primary` must be a 6-digit hex colour, like #293451");
+    problems.push("`colors.primary` must be a 6-digit hex color, like #293451");
   }
 
   const logo = cfg.logo ? logoSrc(dir, cfg.logo, "logo", problems) : null;
