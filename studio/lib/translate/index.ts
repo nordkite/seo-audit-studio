@@ -9,6 +9,7 @@ import {
   type ModelsResult,
   type Provider,
   type Scope,
+  type TranslateProgress,
   type TranslateResult,
   type Usage,
 } from "../types.ts";
@@ -56,12 +57,13 @@ export interface TranslateRequest {
   effort?: string;
   scope?: Scope;
   signal?: AbortSignal;
+  onProgress?: (progress: TranslateProgress) => void;
 }
 
 export async function translateReport(
   slug: string,
   lang: Lang,
-  { provider = "cli", apiKey, model, effort, scope = "stale", signal }: TranslateRequest = {}
+  { provider = "cli", apiKey, model, effort, scope = "stale", signal, onProgress }: TranslateRequest = {}
 ): Promise<TranslateResult> {
   const impl = PROVIDERS[provider as Provider];
   if (!impl) throw httpError(400, `Unknown translation provider: ${provider}`);
@@ -80,9 +82,21 @@ export async function translateReport(
 
   const level = (effort || undefined) as Effort | undefined;
   const batches = chunk(fields);
-  const replies = await pooled(batches, CONCURRENCY, (batch) =>
-    impl.translate(batch, { from, to: lang, apiKey, model, effort: level, signal })
-  );
+  const progress: TranslateProgress = {
+    batchesDone: 0,
+    batches: batches.length,
+    fieldsDone: 0,
+    fields: fields.length,
+  };
+  onProgress?.({ ...progress });
+
+  const replies = await pooled(batches, CONCURRENCY, async (batch) => {
+    const reply = await impl.translate(batch, { from, to: lang, apiKey, model, effort: level, signal });
+    progress.batchesDone++;
+    progress.fieldsDone += batch.length;
+    onProgress?.({ ...progress });
+    return reply;
+  });
 
   const translations = Object.assign({}, ...replies.map((r) => r.translations));
   const { applied, missing, unknown } = reconcile(fields, translations);

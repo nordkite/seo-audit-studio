@@ -22,7 +22,7 @@ import {
 import { listModels, translateReport } from "./lib/translate/index.ts";
 import { cancelAudit, killChild, listJobs, preflight, startAudit } from "./lib/audit.ts";
 import { DEFAULT_MODEL } from "./lib/translate/anthropic.ts";
-import type { BrandDoc, Health } from "./lib/types.ts";
+import type { BrandDoc, Health, TranslateEvent } from "./lib/types.ts";
 
 const PORT = Number(process.env.STUDIO_PORT ?? 4321);
 const DIST = join(ROOT, "studio", "client", "dist");
@@ -116,10 +116,14 @@ function serveStatic(res: ServerResponse, pathname: string) {
 /**
  * Translate a report into one language.
  *
- * A plain request/response, not a stream. The work is one model call per batch
- * of a few thousand characters, so there is no long-running progress to
- * report — and an EventSource could carry neither a request body nor an
- * Authorization header, which is where the API key has to travel.
+ * The response is NDJSON on this same POST: a `progress` line before the first
+ * batch and after each one, then a final `result` or `error` line. It is not
+ * an EventSource, which could carry neither a request body nor an
+ * Authorization header, and that is where the API key has to travel.
+ *
+ * Headers go out with the first progress line, so anything that fails before
+ * then (bad slug, unknown provider or effort) is still a plain
+ * JSON error with a real status code.
  *
  * The key is read off the request and handed straight to the provider. It is
  * never logged, never written to disk, and never echoed back.
@@ -133,16 +137,29 @@ async function translate(req: IncomingMessage, res: ServerResponse, slug: string
   const controller = new AbortController();
   req.on("close", () => controller.abort());
 
-  const result = await translateReport(slug, assertLang(lang), {
-    provider,
-    apiKey,
-    model,
-    effort,
-    scope,
-    signal: controller.signal,
-  });
+  const send = (event: TranslateEvent) => {
+    if (!res.headersSent) {
+      res.writeHead(200, { "Content-Type": "application/x-ndjson; charset=utf-8" });
+    }
+    res.write(JSON.stringify(event) + "\n");
+  };
 
-  return json(res, 200, result);
+  try {
+    const result = await translateReport(slug, assertLang(lang), {
+      provider,
+      apiKey,
+      model,
+      effort,
+      scope,
+      signal: controller.signal,
+      onProgress: (p) => send({ type: "progress", ...p }),
+    });
+    send({ type: "result", result });
+  } catch (err) {
+    if (!res.headersSent) throw err;
+    send({ type: "error", error: (err as Error).message ?? String(err) });
+  }
+  res.end();
 }
 
 /* ----------------------------------------------------------------- brand -- */

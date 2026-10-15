@@ -11,6 +11,8 @@ import type {
   Provider,
   Report,
   ReportSummary,
+  TranslateEvent,
+  TranslateProgress,
   TranslateResult,
   TranslateSettings,
 } from "./types";
@@ -74,13 +76,40 @@ export const api = {
    * browser history. The server hands it straight to the provider and keeps
    * no copy.
    */
-  translate: (slug: string, lang: Lang, settings: TranslateSettings, signal?: AbortSignal) =>
-    fetch(`/api/translate/${slug}/${lang}`, {
+  translate: async (
+    slug: string,
+    lang: Lang,
+    settings: TranslateSettings,
+    onProgress: (p: TranslateProgress) => void,
+    signal?: AbortSignal
+  ): Promise<TranslateResult> => {
+    const res = await fetch(`/api/translate/${slug}/${lang}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(settings),
       signal,
-    }).then((r) => unwrap<TranslateResult>(r)),
+    });
+    // A failure before the work starts is a plain JSON error, not a stream.
+    if (!res.ok || !res.body) return unwrap<TranslateResult>(res);
+
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += value;
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const event = JSON.parse(line) as TranslateEvent;
+        if (event.type === "progress") onProgress(event);
+        else if (event.type === "result") return event.result;
+        else throw new Error(event.error);
+      }
+    }
+    throw new Error("The translation stopped without a result.");
+  },
 
   render: (slug: string, langs: Lang[]) =>
     post(`/api/render/${slug}`, { langs }).then((r) =>

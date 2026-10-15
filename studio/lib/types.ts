@@ -68,6 +68,20 @@ export interface TranslateResult {
   usage?: Usage;
 }
 
+/** How far a translation has got. Sent once before the first batch, then after each one. */
+export interface TranslateProgress {
+  batchesDone: number;
+  batches: number;
+  fieldsDone: number;
+  fields: number;
+}
+
+/** One NDJSON line of a /api/translate response. The last line is `result` or `error`. */
+export type TranslateEvent =
+  | ({ type: "progress" } & TranslateProgress)
+  | { type: "result"; result: TranslateResult }
+  | { type: "error"; error: string };
+
 export interface Health {
   ok: boolean;
   langs: Lang[];

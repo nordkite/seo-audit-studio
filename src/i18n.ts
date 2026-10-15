@@ -30,12 +30,15 @@ export function loadStrings(lang: string): Strings {
  *
  * Report JSON stores every human string as { en, et, ru }. If a translation is
  * missing we fall back to the source language rather than rendering "undefined"
- * — a partially translated report is still a usable report.
+ * — a partially translated report is still a usable report. A blank string
+ * counts as missing: clearing a translation in the Studio saves "", and that
+ * must fall back too.
  */
 export function t(field: string | I18n | null | undefined, lang: Lang, sourceLang: Lang = "en"): string {
   if (field == null) return "";
   if (typeof field === "string") return field;
-  return field[lang] ?? field[sourceLang] ?? field.en ?? "";
+  const filled = (s: string | undefined) => (s?.trim() ? s : undefined);
+  return filled(field[lang]) ?? filled(field[sourceLang]) ?? field.en ?? "";
 }
 
 /** Returns the langs a report is genuinely translated into. */

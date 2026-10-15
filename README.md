@@ -8,6 +8,33 @@ Audit data lives as structured JSON; the PDF is a pure function of
 without being re-run. Your name, logo and color go on every page, configured
 once in `brand/brand.json`. Colors can also be set directly in the Studio interface.
 
+## Quick start: the web app
+
+The easiest way to use it is **Report Studio**, a web app that runs on your
+machine. You run an audit, edit it, translate it and download the PDF in the
+browser, with no slash commands to remember.
+
+```bash
+npm run setup      # once: installs everything, creates brand/ from brand.example/
+npm run studio     # opens on http://127.0.0.1:4321
+```
+
+1. **New report**: paste a URL, pick *Whole site* or *Single page*, then
+   **Start audit**. claude-seo runs in the background and the progress shows in
+   the top bar.
+2. **Edit** the findings, add custom sections with images and check the live
+   preview.
+3. **Translate** each language, then edit it side by side with the English.
+4. **Render PDF** saves the branded PDF to `out/`.
+
+The Studio still uses Claude Code under the hood, so Claude Code must be
+installed and logged in (see [Setup](#setup)). More in
+[Report Studio](#report-studio).
+
+## Quick start: the terminal
+
+Everything the Studio does is also a command:
+
 ```bash
 npm run setup                      # also creates brand/ from brand.example/
 # in Claude Code: /new-audit https://example.com  → reports/example-com.json
@@ -152,9 +179,11 @@ of 15"), edit `i18n/<lang>.json`, not a report. Protected terms are in
 
 ## Report Studio
 
-A local editor for the same JSON — drag findings between severities, add sections
-with images, edit any language side by side with its English source, and see a
-live preview rendered by the production renderer.
+The recommended way to work. A local web app over the same JSON: start site or
+page audits from **New report**, drag findings between severities, add sections
+with images, edit any language side by side with its English source, set brand
+colors with the palette button, and see a live preview rendered by the
+production renderer.
 
 ```bash
 npm run studio        # builds the UI, serves on http://127.0.0.1:4321
