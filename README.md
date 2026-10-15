@@ -126,6 +126,20 @@ installed plugin differs. To move to a new release, update the plugin
 (`claude plugin marketplace update agricidaniel-claude-seo`), re-audit a site
 you know, compare the result in the Studio, then bump the version.
 
+**What Google data ends up in the report.** Connecting Google is optional and
+done through claude-seo (`/seo google setup`); its docs cover the credentials.
+Once connected, the report uses it like this:
+
+| Source | In the PDF |
+|---|---|
+| Search Console | Last 28 days: clicks, impressions, CTR, average position, top 10 queries |
+| CrUX | Core Web Vitals from real users (p75, mobile), labelled as field data |
+| PageSpeed Insights | Lighthouse scores and lab Core Web Vitals, with or without Google credentials |
+| Google Analytics 4 | Not yet. The audit records whether GA4 is connected, but prints no numbers |
+
+The Method section prints a table showing which sources were used and why any
+were not (no access, not configured, no data).
+
 **Google data for client sites.** The service account only sees properties it
 has been added to. Ask the client to add its `client_email` to their Search
 Console property as a **Restricted** user. Without access the report skips
