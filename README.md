@@ -2,16 +2,17 @@
 
 # SEO Audit Studio
 
-White-label, multilingual PDF SEO audit reports for agencies and consultants.
+White-label, multilingual PDF SEO audit reports.
 Audit data lives as structured JSON; the PDF is a pure function of
-`(report, language)`, so the same audit renders in English, Estonian and Russian
+`(report, language)`, so the same audit renders in any language you prefer
 without being re-run. Your name, logo and color go on every page, configured
-once in `brand/`.
+once in `brand/brand.json`. Colors can also be set directly in the Studio interface.
 
 ```bash
 npm run setup                      # also creates brand/ from brand.example/
-npm run report -- example-com--home --all
-# → out/SEO-Audit-example-com--home-<lang>-<date>.pdf, one per translated language
+# in Claude Code: /new-audit https://example.com  → reports/example-com.json
+npm run report -- example-com --all
+# → out/SEO-Audit-example-com-<lang>-<date>.pdf, one per translated language
 #   (re-renders add _1, _2…)
 ```
 
@@ -56,7 +57,6 @@ brand/
   "phone": "+372 555 0100",
   "logo": "logo.svg",
   "logoOnDark": "logo-on-dark.svg",
-  "colors": { "primary": "#1f3a5f" },
   "font": "manrope",
   "cover": { "background": "#1f3a5f", "text": "#ffffff" },
   "body": { "background": "#ffffff", "text": "#121212" }
@@ -64,8 +64,7 @@ brand/
 ```
 
 Only `name` is required. A logo is a file in `brand/` or an `https://` URL, and
-can be SVG, PNG, JPG, WebP or GIF. The primary color is the accent; its lighter tints
-are derived from it. `cover` and `body` set each surface's background, text
+can be SVG, PNG, JPG, WebP or GIF. `cover` and `body` set each surface's background, text
 color and logo variant, and every grey in the report is mixed from those two
 colors. The Studio's palette button edits them with a live preview. `font`
 picks a typeface from `fonts/`. The PDF's author,
@@ -214,7 +213,7 @@ Everything the Studio needs is a `devDependency`. `dependencies` is exactly
 `pdf-lib` and `puppeteer`:
 
 ```bash
-npm ci --omit=dev && npm run report -- example-com--home   # still works
+npm ci --omit=dev && npm run report -- <slug>   # still works
 ```
 
 Keep it that way — the PDF pipeline should never depend on the editor.
@@ -349,8 +348,8 @@ against.
 ## Verifying layout changes
 
 ```bash
-npm run report -- example-com--home --lang en --html
-pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-example-com--home-en-*.pdf | head -1)" out/_check
+npm run report -- <slug> --lang en --html
+pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-<slug>-en-*.pdf | head -1)" out/_check
 ```
 
 Then look at the PNGs. `pdftoppm` comes from poppler (`brew install poppler`).

@@ -2,7 +2,15 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadStrings, t, formatDate, formatNumber, type Strings } from "./i18n.ts";
 import { loadBrand, type Brand } from "./brand.ts";
-import { textScale, type LogoVariant, type Surface } from "./theme.ts";
+import {
+  autoCards,
+  cardShades,
+  faintOf,
+  textScale,
+  type LogoVariant,
+  type Surface,
+  type SurfaceName,
+} from "./theme.ts";
 import {
   CATEGORIES,
   DATA_SOURCES,
@@ -489,6 +497,40 @@ function fontStack(brand: Brand): string {
   return brand.font ? `"${brand.font.family}", ${SYSTEM_SANS}` : SYSTEM_SANS;
 }
 
+/** The card background in effect, set or automatic. */
+function cardBackground(surface: Surface, part: SurfaceName): string {
+  const { background, text, border } = surface;
+  return surface.cards.background ?? autoCards({ background, text, border: border ?? undefined }, part).background;
+}
+
+/**
+ * `cards` as custom properties. Card text also sets .has-card-text on the
+ * document, and comes with the muted and faint shades worked out here.
+ */
+function cardVars(surface: Surface, part: SurfaceName): string[] {
+  const c = surface.cards;
+  const shades = c.text ? cardShades(c.text, cardBackground(surface, part)) : null;
+  return [
+    ...(c.background ? [`--cards-bg: ${c.background}`] : []),
+    ...(c.border ? [`--cards-border: ${c.border}`] : []),
+    ...(c.text && shades
+      ? [`--cards-text: ${c.text}`, `--cards-muted: ${shades.muted}`, `--cards-faint: ${shades.faint}`]
+      : []),
+  ];
+}
+
+/** body.evidence as custom properties; the label is a lighter shade of the text. */
+function evidenceVars(surface: Surface, part: SurfaceName): string[] {
+  const ev = surface.evidence;
+  return [
+    ...(ev.background ? [`--evidence-bg: ${ev.background}`] : []),
+    ...(ev.border ? [`--evidence-border: ${ev.border}`] : []),
+    ...(ev.text
+      ? [`--evidence-text: ${ev.text}`, `--evidence-label: ${faintOf(ev.text, ev.background ?? cardBackground(surface, part))}`]
+      : []),
+  ];
+}
+
 /**
  * The brand color, the surface's colors and the font go in as custom
  * properties. report.css derives every grey, rule and tint from them, so a
@@ -500,20 +542,28 @@ function shell(
   title: string,
   body: string,
   brand: Brand,
-  surface: Surface
+  part: SurfaceName
 ): string {
+  const surface = brand[part];
   const css = readFileSync(join(ROOT, "templates", "report.css"), "utf8");
   const vars = [
-    `--brand: ${brand.primary}`,
     `--paper: ${surface.background}`,
     `--ink: ${surface.text}`,
-    `--accent: ${surface.accent}`,
     `--radius: ${surface.radius}mm`,
+    ...(surface.border ? [`--border: ${surface.border}`] : []),
+    ...cardVars(surface, part),
+    ...(surface.muted
+      ? [`--muted: ${surface.muted}`, `--faint: ${faintOf(surface.muted, surface.background)}`]
+      : []),
+    ...evidenceVars(surface, part),
     `--font-sans: ${fontStack(brand)}`,
     `--text-scale: ${textScale(brand.textSize)}`,
   ].join("; ");
+  const classes = [surface.dark && "surface--dark", surface.cards.text && "has-card-text"]
+    .filter(Boolean)
+    .join(" ");
   return `<!doctype html>
-<html lang="${lang}"${surface.dark ? ` class="surface--dark"` : ""}>
+<html lang="${lang}"${classes ? ` class="${classes}"` : ""}>
 <head>
 <meta charset="utf-8">
 <title>${esc(title)}</title>
@@ -625,7 +675,7 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
   </dl>
 </div>`,
     brand,
-    brand.cover
+    "cover"
   );
 }
 
@@ -754,7 +804,7 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
 
 </main>`,
     brand,
-    brand.body
+    "body"
   );
 }
 
@@ -781,8 +831,8 @@ export function runningTemplates(
   // Data URIs are the one kind of resource they load.
   const font = fontStack(brand).replace(/"/g, "'");
   const fontCss = brand.font ? `<style>${brand.font.css}</style>` : "";
-  const { text, background } = brand.body;
-  const faint = `color-mix(in srgb, ${text} 63%, ${background})`;
+  const { text, background, muted } = brand.body;
+  const faint = muted ? faintOf(muted, background) : `color-mix(in srgb, ${text} 63%, ${background})`;
   const base = `font-family: ${font}; font-size: 7pt; color: ${faint};`;
   // Chrome leaves page margins unpainted whatever the body's background, so a
   // colored body would sit between two white bands. Each template paints its

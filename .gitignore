@@ -9,8 +9,7 @@ studio/client/dist/
 brand/
 .studio-audits/
 
-# Your clients' audits and their images. Only the example-com--home fixture is tracked.
+# Your clients' audits and their images. No report is tracked.
 reports/*
-!reports/example-com--*.json
 assets/*
 !assets/README.md

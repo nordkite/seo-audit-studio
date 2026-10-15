@@ -5,9 +5,6 @@
   "phone": "",
   "logo": "logo.svg",
   "logoOnDark": "logo-on-dark.svg",
-  "colors": {
-    "primary": "#1f3a5f"
-  },
   "font": "manrope",
   "cover": {
     "background": "#ffffff",

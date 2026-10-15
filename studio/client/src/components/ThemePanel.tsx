@@ -11,6 +11,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  autoBorder,
+  autoCards,
+  autoEvidence,
+  autoMuted,
   DEFAULT_BACKGROUND,
   DEFAULT_RADIUS,
   DEFAULT_TEXT,
@@ -21,6 +25,7 @@ import {
   TEXT_SIZES,
   type BrandDoc,
   type BrandTheme,
+  type BoxColors,
   type LogoVariant,
   type SurfaceName,
   type TextSize,
@@ -30,6 +35,10 @@ const LOGO_LABELS: Record<LogoVariant, string> = {
   logo: "Logo",
   logoOnDark: "Logo on dark",
 };
+
+type Box = "cards" | "evidence";
+const BOX_NAMES: Record<Box, string> = { cards: "Card", evidence: "Evidence" };
+
 
 const TEXT_SIZE_LABELS: Record<TextSize, string> = {
   small: "Small",
@@ -43,8 +52,8 @@ const textSizeItems = (Object.keys(TEXT_SIZES) as TextSize[]).map((v) => ({
 }));
 
 /**
- * Colors and logo for the surface the preview is showing, plus the primary
- * color both share. Edits are a draft: the preview shows them at once, and
+ * Colors, logo and shape of the surface the preview is showing, plus the
+ * text size both share. Edits are a draft: the preview shows them at once, and
  * nothing reaches brand/brand.json until Save.
  */
 export function ThemePanel({
@@ -65,12 +74,26 @@ export function ThemePanel({
   onSave: () => void;
 }) {
   const surface = draft[part];
-  const resolved = resolveSurface(surface, draft.primary);
+  const resolved = resolveSurface(surface);
   const dirty = JSON.stringify(draft) !== JSON.stringify(saved.theme);
   const setSurface = (patch: Partial<typeof surface>) =>
     onChange({ ...draft, [part]: { ...surface, ...patch } });
+  // Drops cleared keys, and the whole object once empty, so going back to Auto
+  // leaves the draft equal to the saved theme.
+  const setBox = (box: Box, patch: BoxColors) => {
+    const next = Object.fromEntries(
+      Object.entries({ ...surface[box], ...patch }).filter(([, v]) => v !== undefined)
+    );
+    setSurface({ [box]: Object.keys(next).length ? next : undefined });
+  };
+  const boxAuto: Record<Box, Required<BoxColors>> = {
+    cards: autoCards(surface, part),
+    evidence: autoEvidence(surface),
+  };
+  // Evidence boxes are only on the body.
+  const boxes: Box[] = part === "body" ? ["cards", "evidence"] : ["cards"];
 
-  const auto = resolveSurface({ ...surface, logo: undefined }, draft.primary).logo;
+  const auto = resolveSurface({ ...surface, logo: undefined }).logo;
   const missingDark = resolved.logo === "logoOnDark" && !saved.hasLogoOnDark;
   const logoItems = [
     { value: "auto", label: `Auto — ${LOGO_LABELS[auto]}` },
@@ -109,17 +132,24 @@ export function ThemePanel({
             </SelectContent>
           </Select>
         </div>
+        <ColorField
+          label="Secondary text"
+          value={surface.muted ?? autoMuted(surface, part)}
+          onChange={(muted) => setSurface({ muted })}
+          onAuto={surface.muted ? () => setSurface({ muted: undefined }) : undefined}
+        />
+        <ColorField
+          label="Border"
+          value={surface.border ?? autoBorder(surface, part)}
+          onChange={(border) => setSurface({ border })}
+          onAuto={surface.border ? () => setSurface({ border: undefined }) : undefined}
+        />
         <RadiusField
           value={surface.radius ?? DEFAULT_RADIUS}
           onChange={(radius) => setSurface({ radius })}
         />
-        <ColorField
-          label="Primary (both)"
-          value={draft.primary}
-          onChange={(primary) => onChange({ ...draft, primary })}
-        />
         <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Text size (body)</Label>
+          <Label className="text-xs text-muted-foreground">Text size (both)</Label>
           <Select
             value={draft.textSize}
             onValueChange={(v) => onChange({ ...draft, textSize: v as TextSize })}
@@ -139,23 +169,29 @@ export function ThemePanel({
         </div>
       </div>
 
+      {boxes.map((box) => (
+        <div
+          key={box}
+          className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-3 gap-y-2 border-t pt-2"
+        >
+          {(["background", "border", "text"] as const).map((key) => (
+            <ColorField
+              key={key}
+              label={`${BOX_NAMES[box]} ${key}`}
+              value={surface[box]?.[key] ?? boxAuto[box][key]}
+              onChange={(v) => setBox(box, { [key]: v })}
+              onAuto={surface[box]?.[key] ? () => setBox(box, { [key]: undefined }) : undefined}
+            />
+          ))}
+        </div>
+      ))}
+
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         <span className="min-w-0 flex-1 truncate" title={saved.file}>
           {missingDark
             ? "No logoOnDark in brand.json, so the logo is turned white."
-            : resolved.accent !== draft.primary
-              ? "Primary is too close to this background, so accents use the text color."
-              : `Saves to ${saved.isExample ? "brand/brand.json (run npm run setup first)" : "brand.json"}`}
+            : `Saves to ${saved.isExample ? "brand/brand.json (run npm run setup first)" : "brand.json"}`}
         </span>
-        {part === "cover" && surface.background !== draft.primary && (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => setSurface({ background: draft.primary, text: "#ffffff" })}
-          >
-            Fill with primary
-          </Button>
-        )}
         <Button variant="ghost" size="xs" disabled={!dirty || saving} onClick={onReset}>
           <RotateCcw />
           Reset
@@ -201,10 +237,13 @@ function ColorField({
   label,
   value,
   onChange,
+  onAuto,
 }: {
   label: string;
   value: string;
   onChange: (hex: string) => void;
+  /** Shown when the value is set explicitly: goes back to the derived color. */
+  onAuto?: () => void;
 }) {
   // The text field holds what is typed; only a complete hex reaches the draft,
   // so the preview never renders a half-typed color.
@@ -213,7 +252,18 @@ function ColorField({
 
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="flex items-center justify-between">
+        <Label className="text-xs text-muted-foreground">{label}</Label>
+        {onAuto && (
+          <button
+            type="button"
+            onClick={onAuto}
+            className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Auto
+          </button>
+        )}
+      </div>
       <div className="flex items-center gap-1.5">
         <input
           type="color"

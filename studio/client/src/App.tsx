@@ -133,22 +133,26 @@ export default function App() {
     setCreating(true);
   }, [doc]);
 
-  /** Called from the toolbar's confirm dialog; throws to keep the dialog open. */
-  const remove = useCallback(async () => {
-    if (!slug) return;
-    try {
-      await api.remove(slug);
-    } catch (e) {
-      toast.error((e as Error).message);
-      throw e;
-    }
-    toast.success(`Deleted ${slug}`, { description: `A copy is in .studio-backups/${slug}/` });
-    setDoc(null);
-    setSlug(null);
-    setDirty(false);
-    setTouched(new Set());
-    refreshList();
-  }, [slug, refreshList]);
+  /** Called from a delete confirm dialog; throws to keep the dialog open. */
+  const remove = useCallback(
+    async (target: string) => {
+      try {
+        await api.remove(target);
+      } catch (e) {
+        toast.error((e as Error).message);
+        throw e;
+      }
+      toast.success(`Deleted ${target}`, { description: `A copy is in .studio-backups/${target}/` });
+      if (target === slug) {
+        setDoc(null);
+        setSlug(null);
+        setDirty(false);
+        setTouched(new Set());
+      }
+      refreshList();
+    },
+    [slug, refreshList]
+  );
 
   const update = useCallback(
     (mutate: (draft: Report) => void, touchedPath?: string) => {
@@ -264,6 +268,7 @@ export default function App() {
           loading={listing || busy}
           onPick={load}
           onNew={openNew}
+          onDelete={remove}
         />
       ) : (
         <div className="grid flex-1 grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)]">
@@ -279,7 +284,7 @@ export default function App() {
               onSave={save}
               onTranslate={translate}
               onNewForSite={openNewForSite}
-              onDelete={remove}
+              onDelete={() => remove(slug!)}
             />
             <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
               <MetaPanel

@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
-  DEFAULT_PRIMARY,
   DEFAULT_TEXT_SIZE,
+  BOX_KEYS,
   LOGO_VARIANTS,
   TEXT_SIZES,
   SURFACES,
@@ -46,6 +46,7 @@ export interface BrandConfig {
   logo?: string;
   /** For dark surfaces. Without it, `logo` is knocked out to white. */
   logoOnDark?: string;
+  /** Legacy: only read by the `"cover": "brand"` shorthand. */
   colors?: { primary?: string };
   /**
    * A folder name under `fonts/`: the brand folder's own `fonts/` first, then
@@ -56,7 +57,7 @@ export interface BrandConfig {
   textSize?: TextSize;
   /**
    * Background, text color and logo of the cover. The older shorthands still
-   * work: "light" is the default, "brand" sets the cover on the primary color.
+   * work: "light" is the default, "brand" sets the cover on `colors.primary`.
    */
   cover?: SurfaceConfig | LegacyCover;
   /** Background, text color and logo of the body pages. */
@@ -90,7 +91,6 @@ export interface Brand {
   /** An <img> src: a data URI for local files, the URL as-is for remote ones. */
   logo: string | null;
   logoOnDark: string | null;
-  primary: string;
   font: BrandFont | null;
   textSize: TextSize;
   cover: Surface;
@@ -233,35 +233,55 @@ export function readBrandConfig(file: string): BrandConfig {
   }
 }
 
+/** What `"cover": "brand"` fills with when `colors.primary` is not set. */
+const LEGACY_BRAND_COLOR = "#293451";
+
 /** A surface's config with the legacy cover shorthands spelled out. */
-function surfaceConfig(raw: unknown, primary: string): SurfaceConfig {
-  if (raw === "brand") return { background: primary, text: "#ffffff" };
+function surfaceConfig(raw: unknown, cfg: BrandConfig): SurfaceConfig {
+  if (raw === "brand") return { background: cfg.colors?.primary ?? LEGACY_BRAND_COLOR, text: "#ffffff" };
   if (raw === undefined || raw === "light") return {};
   return raw as SurfaceConfig;
 }
 
 /** The theme part of a config, as the Studio edits it. */
 export function themeOf(cfg: BrandConfig): BrandTheme {
-  const primary = cfg.colors?.primary ?? DEFAULT_PRIMARY;
   return {
-    primary,
     textSize: isTextSize(cfg.textSize) ? cfg.textSize : DEFAULT_TEXT_SIZE,
-    cover: surfaceConfig(cfg.cover, primary),
-    body: surfaceConfig(cfg.body, primary),
+    cover: surfaceConfig(cfg.cover, cfg),
+    body: surfaceConfig(cfg.body, cfg),
   };
 }
 
 /** A config with its theme replaced, every other field left as it was. */
 export function withTheme(cfg: BrandConfig, theme: BrandTheme): BrandConfig {
-  const clean = (s: SurfaceConfig): SurfaceConfig =>
-    Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined && v !== ""));
+  const set = (v: unknown) => v !== undefined && v !== "";
+  const only = <T extends object>(o: T): T => Object.fromEntries(Object.entries(o).filter(([, v]) => set(v))) as T;
+  const clean = ({ cards, evidence, ...s }: SurfaceConfig): SurfaceConfig => {
+    const out: SurfaceConfig = only(s);
+    const box = { cards: only(cards ?? {}), evidence: only(evidence ?? {}) };
+    if (Object.keys(box.cards).length) out.cards = box.cards;
+    if (Object.keys(box.evidence).length) out.evidence = box.evidence;
+    return out;
+  };
   return {
     ...cfg,
-    colors: { ...cfg.colors, primary: theme.primary },
     textSize: theme.textSize,
     cover: clean(theme.cover),
     body: clean(theme.body),
   };
+}
+
+/** `cards` or `evidence`: an object of optional hex colors. */
+function checkBox(raw: unknown, field: string, problems: string[]): void {
+  if (raw === undefined) return;
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    problems.push(`\`${field}\` must be an object like { "background": "#f6f6f6", "border": "#e0e0e0", "text": "#121212" }`);
+    return;
+  }
+  for (const key of BOX_KEYS) {
+    const v = (raw as Record<string, unknown>)[key];
+    if (v !== undefined && !isHex(v)) problems.push(`\`${field}.${key}\` must be a 6-digit hex color, like #ffffff`);
+  }
 }
 
 function checkSurface(raw: unknown, field: string, problems: string[]): void {
@@ -273,13 +293,22 @@ function checkSurface(raw: unknown, field: string, problems: string[]): void {
     return;
   }
   const s = raw as Record<string, unknown>;
-  for (const key of ["background", "text"]) {
+  for (const key of ["background", "text", "border", "muted"]) {
     if (s[key] !== undefined && !isHex(s[key])) {
       problems.push(`\`${field}.${key}\` must be a 6-digit hex color, like #ffffff`);
     }
   }
   if (s.radius !== undefined && !isRadius(s.radius)) {
     problems.push(`\`${field}.radius\` must be a number of mm from 0 to ${MAX_RADIUS}, like 2`);
+  }
+  if (s.card !== undefined) {
+    problems.push(`\`${field}.card\` is now \`${field}.cards.background\``);
+  }
+  checkBox(s.cards, `${field}.cards`, problems);
+  if (s.evidence !== undefined && field !== "body") {
+    problems.push(`\`${field}.evidence\`: evidence boxes are on the body only; move it under \`body\``);
+  } else {
+    checkBox(s.evidence, `${field}.evidence`, problems);
   }
   if (s.logo !== undefined && !LOGO_VARIANTS.includes(s.logo as never)) {
     problems.push(`\`${field}.logo\` must be one of ${LOGO_VARIANTS.map((v) => `"${v}"`).join(", ")}`);
@@ -304,8 +333,7 @@ export function resolveBrand(
   const problems: string[] = [];
   if (typeof cfg.name !== "string" || !cfg.name.trim()) problems.push("`name` is required");
 
-  const primary = cfg.colors?.primary ?? DEFAULT_PRIMARY;
-  if (!isHex(primary)) {
+  if (cfg.cover === "brand" && cfg.colors?.primary !== undefined && !isHex(cfg.colors.primary)) {
     problems.push("`colors.primary` must be a 6-digit hex color, like #293451");
   }
 
@@ -332,11 +360,10 @@ export function resolveBrand(
     phone: cfg.phone?.trim() || null,
     logo,
     logoOnDark,
-    primary,
     font,
     textSize: theme.textSize,
-    cover: resolveSurface(theme.cover, primary),
-    body: resolveSurface(theme.body, primary),
+    cover: resolveSurface(theme.cover),
+    body: resolveSurface(theme.body),
     isExample,
   };
 }

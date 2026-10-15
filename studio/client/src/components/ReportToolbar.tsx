@@ -1,13 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Languages, Loader2, Plus, Save, Trash2 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Languages, Plus, Save, Trash2 } from "lucide-react";
+import { DeleteReportDialog } from "@/components/DeleteReportDialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { LANG_LABEL } from "@/lib/report";
@@ -51,19 +44,6 @@ export function ReportToolbar({
   onDelete,
 }: Props) {
   const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  const confirm = async () => {
-    setDeleting(true);
-    try {
-      await onDelete();
-      setConfirming(false);
-    } catch {
-      /* the caller has reported it; leave the dialog up */
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
@@ -107,28 +87,11 @@ export function ReportToolbar({
         </Button>
       </div>
 
-      <Dialog open={confirming} onOpenChange={(o) => !o && !deleting && setConfirming(false)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete this report?</DialogTitle>
-            <DialogDescription>
-              <span className="font-mono">reports/{slug}.json</span> will be removed from the
-              Studio. A copy is kept in <span className="font-mono">.studio-backups/{slug}/</span>,
-              which is the only way to get it back. Images in{" "}
-              <span className="font-mono">assets/{slug}/</span> are not touched.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirming(false)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirm} disabled={deleting}>
-              {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteReportDialog
+        slug={confirming ? slug : null}
+        onClose={() => setConfirming(false)}
+        onDelete={() => onDelete()}
+      />
     </div>
   );
 }

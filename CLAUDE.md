@@ -217,9 +217,12 @@ After any template change, verify visually. `page.pdf()` fails silently: a broke
 `break-inside` or a dropped background produces a valid PDF that just looks wrong.
 
 ```bash
-npm run report -- example-com--home --lang en --html
-pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-example-com--home-en-*.pdf | head -1)" out/_check
+npm run report -- <slug> --lang en --html
+pdftoppm -png -r 90 -f 2 -l 4 "$(ls -t out/SEO-Audit-<slug>-en-*.pdf | head -1)" out/_check
 ```
+
+No report is tracked, so use any local one in `reports/`. Pick one with every
+section populated (metrics, custom sections, not-covered items).
 
 Check: no finding split across a page boundary, header/footer present and
 unclipped, background colors intact.

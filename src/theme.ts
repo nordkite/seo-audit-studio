@@ -13,6 +13,15 @@ export type SurfaceName = (typeof SURFACES)[number];
 export const LOGO_VARIANTS = ["logo", "logoOnDark"] as const;
 export type LogoVariant = (typeof LOGO_VARIANTS)[number];
 
+/** Colors of a kind of box: the cards, or the evidence box. Every field is optional. */
+export interface BoxColors {
+  background?: string;
+  border?: string;
+  /** Its main text; secondary text and labels inside are lighter shades of it. */
+  text?: string;
+}
+export const BOX_KEYS = ["background", "border", "text"] as const;
+
 /** What a user writes under `cover` or `body` in brand.json. Every field is optional. */
 export interface SurfaceConfig {
   background?: string;
@@ -21,6 +30,21 @@ export interface SurfaceConfig {
   logo?: LogoVariant;
   /** Corner radius of cards and panels, in mm. 0 is square. */
   radius?: number;
+  /** Color of borders and dividers. Without it, mixed from `text` and `background`. */
+  border?: string;
+  /**
+   * Cards: the score card on the cover; finding cards, the
+   * at-a-glance cells, the method box and the closing brand box on the body.
+   * Severity badges and evidence boxes inside them are tinted from the card.
+   */
+  cards?: BoxColors;
+  /**
+   * Secondary text: subtitles, descriptions, labels. Labels use a lighter
+   * shade of it. Without it, mixed from `text` and `background`.
+   */
+  muted?: string;
+  /** Evidence box colors. Only the body has evidence boxes. */
+  evidence?: BoxColors;
 }
 
 /**
@@ -42,7 +66,6 @@ export const textScale = (size: TextSize): number => +(TEXT_SIZES[size] / CSS_BO
 
 /** The theme part of brand.json: what the Studio reads and writes. */
 export interface BrandTheme {
-  primary: string;
   textSize: TextSize;
   cover: SurfaceConfig;
   body: SurfaceConfig;
@@ -52,14 +75,17 @@ export interface BrandTheme {
 export interface Surface {
   background: string;
   text: string;
-  /** The primary color where it reads on `background`, otherwise `text`. */
-  accent: string;
   dark: boolean;
   logo: LogoVariant;
   radius: number;
+  /** Null when the brand leaves it to report.css's automatic mix. */
+  border: string | null;
+  cards: BoxColors;
+  /** Null when the brand leaves it to report.css. */
+  muted: string | null;
+  evidence: BoxColors;
 }
 
-export const DEFAULT_PRIMARY = "#293451";
 export const DEFAULT_BACKGROUND = "#ffffff";
 export const DEFAULT_TEXT = "#121212";
 export const DEFAULT_RADIUS = 2;
@@ -88,17 +114,83 @@ export function contrast(a: string, b: string): number {
 export const isDark = (bg: string): boolean => contrast(bg, "#ffffff") > contrast(bg, "#000000");
 
 /** Fills the gaps in a surface config. Assumes its colors are valid hex. */
-export function resolveSurface(cfg: SurfaceConfig, primary: string): Surface {
+export function resolveSurface(cfg: SurfaceConfig): Surface {
   const background = cfg.background ?? DEFAULT_BACKGROUND;
   const text = cfg.text ?? DEFAULT_TEXT;
   const dark = isDark(background);
   return {
     background,
     text,
-    // 3:1 is the WCAG floor for large text, which is what the accent sets.
-    accent: contrast(primary, background) >= 3 ? primary : text,
     dark,
     logo: cfg.logo ?? (dark ? "logoOnDark" : "logo"),
     radius: cfg.radius ?? DEFAULT_RADIUS,
+    border: cfg.border ?? null,
+    cards: cfg.cards ?? {},
+    muted: cfg.muted ?? null,
+    evidence: cfg.evidence ?? {},
+  };
+}
+
+/** `a` mixed into `b` by `pct` percent, as CSS color-mix(in srgb) does it. */
+export function mix(a: string, b: string, pct: number): string {
+  const ch = (hex: string, i: number) => parseInt(hex.slice(i, i + 2), 16);
+  return (
+    "#" +
+    [1, 3, 5]
+      .map((i) => Math.round(ch(a, i) * (pct / 100) + ch(b, i) * (1 - pct / 100)))
+      .map((v) => v.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+/**
+ * The border color report.css uses when a surface sets none, so the Studio
+ * can show it. Mirrors --rule, and --c-rule on a dark cover.
+ */
+export function autoBorder(cfg: SurfaceConfig, part: SurfaceName): string {
+  const background = cfg.background ?? DEFAULT_BACKGROUND;
+  const pct = part === "cover" && isDark(background) ? 18 : 10;
+  return mix(cfg.text ?? DEFAULT_TEXT, background, pct);
+}
+
+/** The secondary text color report.css uses when a surface sets none. */
+export function autoMuted(cfg: SurfaceConfig, part: SurfaceName): string {
+  const background = cfg.background ?? DEFAULT_BACKGROUND;
+  const pct = part === "cover" && isDark(background) ? 74 : 70.5;
+  return mix(cfg.text ?? DEFAULT_TEXT, background, pct);
+}
+
+/**
+ * The lighter label shade of a `muted` color: as far below it as the default
+ * faint grey sits below the default muted one.
+ */
+export const faintOf = (muted: string, background: string): string => mix(muted, background, 88);
+
+/** The secondary and label shades of a card's own text color, on its background. */
+export function cardShades(text: string, background: string): { muted: string; faint: string } {
+  const muted = mix(text, background, 72);
+  return { muted, faint: faintOf(muted, background) };
+}
+
+/** The card colors report.css uses for whatever a surface leaves unset. */
+export function autoCards(cfg: SurfaceConfig, part: SurfaceName): Required<BoxColors> {
+  const background = cfg.background ?? DEFAULT_BACKGROUND;
+  const text = cfg.text ?? DEFAULT_TEXT;
+  return {
+    background: part === "cover" && isDark(background) ? mix(text, background, 6) : background,
+    border: cfg.border ?? autoBorder(cfg, part),
+    text,
+  };
+}
+
+/** The evidence box colors report.css uses for whatever a body leaves unset. */
+export function autoEvidence(cfg: SurfaceConfig): Required<BoxColors> {
+  const card = { ...autoCards(cfg, "body"), ...cfg.cards };
+  return {
+    background: mix(card.text, card.background, 3.4),
+    border: card.border,
+    text: cfg.cards?.text
+      ? cardShades(card.text, card.background).muted
+      : (cfg.muted ?? autoMuted(cfg, "body")),
   };
 }

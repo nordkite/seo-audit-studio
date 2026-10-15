@@ -15,7 +15,6 @@ repo and pulling updates never conflicts with it.
 | `email`, `phone` | no | Printed on the last page. Leave empty to omit |
 | `logo` | no | Logo for light surfaces. Without one, `name` is set in type |
 | `logoOnDark` | no | Logo for dark surfaces. Without one, `logo` is turned solid white where a surface asks for `logoOnDark` |
-| `colors.primary` | no | The accent: cover kicker and roadmap steps. 6-digit hex. Lighter tints are derived from it. On a background it would not read on, the accent falls back to that surface's text color |
 | `font` | no | Typeface for the whole report, by folder name under `fonts/`: `"manrope"`. Without it, the system sans. See [fonts/README.md](../fonts/README.md) |
 | `textSize` | no | Body text size of the report pages: `"small"` (9.4pt, the original size), `"default"` (12pt, 16px), `"medium"` (13pt) or `"large"` (14pt). Headings, labels, tables and score dials scale with it, on the cover too |
 | `cover` | no | The cover page's surface, see below |
@@ -23,13 +22,17 @@ repo and pulling updates never conflicts with it.
 
 ## Cover and body surfaces
 
-`cover` and `body` take the same four optional fields:
+`cover` and `body` take the same optional fields:
 
 | Field | Default | |
 |---|---|---|
 | `background` | `#ffffff` | 6-digit hex |
 | `text` | `#121212` | 6-digit hex. Secondary text, rules, card fills and tints are all mixed from `text` and `background`, so these two colors restyle the whole surface |
 | `logo` | by background | `"logo"` or `"logoOnDark"`. Left out, a dark background gets `logoOnDark` and a light one `logo`. On the body this is the logo on the last page |
+| `muted` | mixed from `text` and `background` | 6-digit hex. Secondary text: the client name under the site, descriptions, labels such as "Overall score". Labels get a slightly lighter shade of it. On the body it also colors the running header and footer |
+| `border` | mixed from `text` and `background` | 6-digit hex. Borders, dividers and table rules. Left out, a faint grey that follows the surface colors |
+| `cards` | the background (slightly lifted on a dark cover), `border`, `text` | `{ "background": …, "border": …, "text": … }`, each a 6-digit hex and optional. The score card on the cover; finding cards, the at-a-glance cells, the method box and the closing brand box on the body. `text` recolors everything inside a card, with its secondary text and labels as lighter shades of it. Severity badges and evidence boxes inside a card are tinted from its background |
+| `evidence` | a tint of the card, with its border and secondary text | **Body only.** The evidence box under a finding, inside its card: `{ "background": "#f4f4f4", "border": "#dddddd", "text": "#444444" }`, each optional. The "Evidence" label gets a lighter shade of `text` |
 | `radius` | `2` | Corner radius of cards, panels, badges and bars, in mm, from 0 (square) to 10. Every rounded corner on the surface scales with it; circles stay circles |
 
 ```json
@@ -38,12 +41,15 @@ repo and pulling updates never conflicts with it.
 ```
 
 The older shorthands still work: `"cover": "light"` is the default, and
-`"cover": "brand"` is a cover in `colors.primary` with white text.
+`"cover": "brand"` is a cover in `colors.primary` with white text. That
+shorthand is the only thing `colors.primary` still does: the report has no
+separate accent color, so the kicker, query bars and roadmap steps use each
+surface's `text`.
 
 The Studio edits these too: the palette button above the preview shows the
 colors of whichever part, Body or Cover, is open. Changes preview at once and
 are written to `brand.json` only when you click **Save to brand.json**. That
-replaces `colors.primary`, `textSize`, `cover` and `body`, and leaves every other field as
+replaces `textSize`, `cover` and `body`, and leaves every other field as
 it is.
 
 `logo` and `logoOnDark` are a file in this folder (`logo.svg`) or an

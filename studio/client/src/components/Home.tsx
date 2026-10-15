@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, FileText, Plus, Search } from "lucide-react";
+import { AlertTriangle, FileText, Plus, Search, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DeleteReportDialog } from "@/components/DeleteReportDialog";
 import { ReportPicker } from "@/components/ReportPicker";
 import { scoreBand, scoreTone } from "@/lib/report";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,8 @@ interface Props {
   loading: boolean;
   onPick: (slug: string) => void;
   onNew: () => void;
+  /** Resolves once the report is gone; rejects to keep the dialog open. */
+  onDelete: (slug: string) => Promise<void>;
 }
 
 type Sort = "recent" | "score" | "site";
@@ -60,65 +63,94 @@ function ScoreRing({ score }: { score: number | null }) {
   );
 }
 
-function ReportCard({ report, onPick }: { report: ReportSummary; onPick: (slug: string) => void }) {
+function ReportCard({
+  report,
+  onPick,
+  onDelete,
+}: {
+  report: ReportSummary;
+  onPick: (slug: string) => void;
+  onDelete: (slug: string) => void;
+}) {
+  // Two sibling buttons, not one inside the other, which HTML forbids.
   return (
-    <button
-      type="button"
-      disabled={report.broken}
-      onClick={() => onPick(report.slug)}
-      className={cn(
-        "group flex flex-col gap-3 border bg-card p-4 text-left transition-all",
-        "hover:-translate-y-0.5 hover:border-foreground/30 hover:shadow-md",
-        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-        "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <ScoreRing score={report.score} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate font-semibold tracking-tight">{report.site}</span>
-            {report.scope === "page" && (
-              <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                Page
-              </Badge>
+    <div className="group relative">
+      <button
+        type="button"
+        disabled={report.broken}
+        onClick={() => onPick(report.slug)}
+        className={cn(
+          "flex size-full flex-col gap-3 border bg-card p-4 text-left transition-all",
+          "group-hover:-translate-y-0.5 group-hover:border-foreground/30 group-hover:shadow-md",
+          "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          "disabled:cursor-not-allowed disabled:opacity-60 disabled:group-hover:translate-y-0 disabled:group-hover:shadow-none"
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <ScoreRing score={report.score} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate font-semibold tracking-tight">{report.site}</span>
+              {report.scope === "page" && (
+                <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                  Page
+                </Badge>
+              )}
+            </div>
+            <div className="truncate text-sm text-muted-foreground">
+              {report.clientName || "—"}
+            </div>
+            {report.score !== null && (
+              <div className="mt-0.5 text-xs text-muted-foreground">{scoreBand(report.score)}</div>
             )}
           </div>
-          <div className="truncate text-sm text-muted-foreground">
-            {report.clientName || "—"}
-          </div>
-          {report.score !== null && (
-            <div className="mt-0.5 text-xs text-muted-foreground">{scoreBand(report.score)}</div>
-          )}
+          {/* Room for the delete button, which sits over this corner. */}
+          <span className="size-7 shrink-0" />
         </div>
-        <ArrowRight className="size-4 shrink-0 -translate-x-1 text-muted-foreground opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" />
-      </div>
 
-      {report.broken ? (
-        <div className="flex items-center gap-1.5 text-xs text-destructive">
-          <AlertTriangle className="size-3.5" /> Could not parse reports/{report.slug}.json
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t pt-3 text-xs text-muted-foreground">
-          <span>{formatDate(report.auditedAt)}</span>
-          <span>
-            {report.findings} finding{report.findings === 1 ? "" : "s"}
-          </span>
-          <span className="ml-auto flex gap-1">
-            {report.langs.map((l) => (
-              <Badge key={l} variant="secondary" className="h-4 px-1 font-mono text-[10px] uppercase">
-                {l}
-              </Badge>
-            ))}
-          </span>
-        </div>
-      )}
-    </button>
+        {report.broken ? (
+          <div className="flex items-center gap-1.5 text-xs text-destructive">
+            <AlertTriangle className="size-3.5" /> Could not parse reports/{report.slug}.json
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t pt-3 text-xs text-muted-foreground">
+            <span>{formatDate(report.auditedAt)}</span>
+            <span>
+              {report.findings} finding{report.findings === 1 ? "" : "s"}
+            </span>
+            <span className="ml-auto flex gap-1">
+              {report.langs.map((l) => (
+                <Badge key={l} variant="secondary" className="h-4 px-1 font-mono text-[10px] uppercase">
+                  {l}
+                </Badge>
+              ))}
+            </span>
+          </div>
+        )}
+      </button>
+      {/* Broken reports stay deletable: often that is all one can do with them. */}
+      <Button
+        variant="ghost"
+        size="icon"
+        title={`Delete ${report.slug}`}
+        aria-label={`Delete ${report.slug}`}
+        onClick={() => onDelete(report.slug)}
+        className={cn(
+          "absolute top-3 right-3 size-7 text-muted-foreground transition-all",
+          "hover:bg-destructive/10 hover:text-destructive",
+          "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+          !report.broken && "group-hover:-translate-y-0.5"
+        )}
+      >
+        <Trash2 className="size-3.5" />
+      </Button>
+    </div>
   );
 }
 
-export function Home({ reports, loading, onPick, onNew }: Props) {
+export function Home({ reports, loading, onPick, onNew, onDelete }: Props) {
   const [query, setQuery] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>("recent");
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -202,7 +234,7 @@ export function Home({ reports, loading, onPick, onNew }: Props) {
             {shown.length ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {shown.map((r) => (
-                  <ReportCard key={r.slug} report={r} onPick={onPick} />
+                  <ReportCard key={r.slug} report={r} onPick={onPick} onDelete={setDeleting} />
                 ))}
               </div>
             ) : (
@@ -224,6 +256,8 @@ export function Home({ reports, loading, onPick, onNew }: Props) {
           </button>
         )}
       </div>
+
+      <DeleteReportDialog slug={deleting} onClose={() => setDeleting(null)} onDelete={onDelete} />
     </div>
   );
 }

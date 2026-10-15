@@ -10,27 +10,51 @@
    ========================================================================== */
 
 :root {
-  /* --brand, --paper, --ink and --accent are overridden per render from
+  /* --paper and --ink are overridden per render from
      brand/brand.json (see shell() in src/render.ts): --paper and --ink are the
      background and text color of whichever surface this document is, the
      cover or the body. Everything below derives from them, so a brand sets a
      handful of colors and a dark surface needs no restyling. */
-  --brand: #293451;
   --paper: #ffffff;
   --ink: #121212;
-  /* The brand color where it reads on --paper, otherwise --ink. */
-  --accent: var(--brand);
 
-  --brand-100: color-mix(in srgb, var(--brand) 12%, var(--paper));
-  --brand-050: color-mix(in srgb, var(--brand) 5%, var(--paper));
+  /* Optional brand.json colors. shell() sets each one only when the brand
+     names it; `initial` is CSS's "no value", so until then every
+     var(--x, fallback) below uses its fallback. Declared here so the full
+     set of hooks is in one place. */
+  --muted: initial;          /* surface.muted */
+  --faint: initial;          /* derived from surface.muted */
+  --border: initial;         /* surface.border */
+  --cards-bg: initial;       /* surface.cards.background */
+  --cards-border: initial;   /* surface.cards.border */
+  --cards-text: initial;     /* surface.cards.text, read under .has-card-text */
+  --cards-muted: initial;    /* derived from cards.text */
+  --cards-faint: initial;    /* derived from cards.text */
+  --evidence-bg: initial;    /* body.evidence.background */
+  --evidence-border: initial;/* body.evidence.border */
+  --evidence-text: initial;  /* body.evidence.text */
+  --evidence-label: initial; /* derived from evidence.text */
 
   /* On the default white/#121212 these land on #585858, #6a6a6a, #e7e7e7… */
-  --ink-muted: color-mix(in srgb, var(--ink) 70.5%, var(--paper));
-  --ink-faint: color-mix(in srgb, var(--ink) 63%, var(--paper));
-  --rule: color-mix(in srgb, var(--ink) 10%, var(--paper));
-  --rule-strong: color-mix(in srgb, var(--ink) 17.7%, var(--paper));
-  --surface: color-mix(in srgb, var(--ink) 3.4%, var(--paper));
+  /* --muted and --faint come from a surface's `muted` in brand.json, set by
+     shell() only when the brand names one. */
+  --ink-muted: var(--muted, color-mix(in srgb, var(--ink) 70.5%, var(--paper)));
+  --ink-faint: var(--faint, color-mix(in srgb, var(--ink) 63%, var(--paper)));
+  /* --border is a surface's `border` from brand.json, set by shell() only
+     when the brand names one; without it, rules are mixed like the greys. */
+  --rule: var(--border, color-mix(in srgb, var(--ink) 10%, var(--paper)));
+  --rule-strong: var(--border, color-mix(in srgb, var(--ink) 17.7%, var(--paper)));
+  --surface: color-mix(in srgb, var(--ink) 4.4%, var(--paper));
   --surface-2: color-mix(in srgb, var(--ink) 6.8%, var(--paper));
+
+  /* Cards: --cards-* are a surface's `cards` from brand.json, set by shell()
+     only for the colors the brand names. Card text is applied through
+     .has-card-text below, since a card cannot redefine --ink from itself. */
+  --card-bg: var(--cards-bg, var(--paper));
+  --card-rule: var(--cards-border, var(--rule));
+  /* How much of a status tone tints its badge, mixed into whatever the badge
+     sits on (see .finding__icon). */
+  --tone-mix: 8%;
 
   /* Each status has a strong tone (text, icons) and a soft tint (badges). */
   --critical: #c8322a;
@@ -63,6 +87,7 @@
 /* A dark surface. The status tints above are pale pastels for white paper;
    here they are mixed into the background instead, so a badge stays a badge. */
 .surface--dark {
+  --tone-mix: 22%;
   --critical-bg: color-mix(in srgb, var(--critical) 22%, var(--paper));
   --warning-bg: color-mix(in srgb, var(--warning) 22%, var(--paper));
   --opportunity-bg: color-mix(in srgb, var(--opportunity) 22%, var(--paper));
@@ -154,9 +179,9 @@ body {
   --c-muted: var(--ink-muted);
   --c-faint: var(--ink-faint);
   --c-rule: var(--rule);
-  --c-card: var(--paper);
+  --c-card: var(--card-bg, var(--paper));
+  --c-card-rule: var(--cards-border, var(--c-rule));
   --c-track: var(--surface-2);
-  --c-accent: var(--accent);
 }
 
 .cover > * {
@@ -166,11 +191,19 @@ body {
 /* On a dark cover the text is light, so the greys sit further from it and the
    score card is lifted off the background rather than matching it. */
 .surface--dark .cover {
-  --c-muted: color-mix(in srgb, var(--ink) 74%, var(--paper));
-  --c-faint: color-mix(in srgb, var(--ink) 62%, var(--paper));
-  --c-rule: color-mix(in srgb, var(--ink) 18%, var(--paper));
-  --c-card: color-mix(in srgb, var(--ink) 6%, var(--paper));
+  --c-muted: var(--muted, color-mix(in srgb, var(--ink) 74%, var(--paper)));
+  --c-faint: var(--faint, color-mix(in srgb, var(--ink) 62%, var(--paper)));
+  --c-rule: var(--border, color-mix(in srgb, var(--ink) 18%, var(--paper)));
+  --c-card: var(--cards-bg, color-mix(in srgb, var(--ink) 6%, var(--paper)));
   --c-track: color-mix(in srgb, var(--ink) 14%, var(--paper));
+}
+
+/* Card text on the cover's score card, when brand.json sets
+   cover.cards.text. shell() works out the muted and faint shades. */
+.has-card-text .cover__score {
+  --c-ink: var(--cards-text);
+  --c-muted: var(--cards-muted);
+  --c-faint: var(--cards-faint);
 }
 
 .cover__top {
@@ -200,13 +233,17 @@ body {
 }
 
 .cover__tag {
-  font-size: calc(8.4pt * var(--text-scale));
+  /* The same label as .section__count on the body pages, in the cover's own
+     tones: its surface tint and border, not the `cards` colors. */
+  font-size: calc(8pt * var(--text-scale));
   font-weight: 500;
   color: var(--c-muted);
-  padding: 1mm 3mm;
+  padding: 0.6mm 2.6mm;
   border: 1px solid var(--c-rule);
-  border-radius: calc(var(--radius) * 5);
-  background: var(--c-card);
+  /* The score card's corners, so the two read as one set. Capped because a
+     corner wider than half the tag's height would turn it into a pill. */
+  border-radius: min(calc(var(--radius) * 1.5), 1.8mm);
+  background: var(--surface);
 }
 
 /* A surface set to logoOnDark with no such file gets the regular logo turned
@@ -236,7 +273,7 @@ body {
 .cover__kicker {
   font-size: calc(10pt * var(--text-scale));
   font-weight: 600;
-  color: var(--c-accent);
+  color: var(--c-ink);
 }
 
 .cover__site {
@@ -265,7 +302,7 @@ body {
   margin-top: 16mm;
   padding: 7mm;
   background: var(--c-card);
-  border: 1px solid var(--c-rule);
+  border: 1px solid var(--c-card-rule);
   border-radius: calc(var(--radius) * 1.5);
 }
 
@@ -291,7 +328,7 @@ body {
   margin: 5mm 0 0;
   padding: 4.5mm 0 0;
   list-style: none;
-  border-top: 1px solid var(--c-rule);
+  border-top: 1px solid var(--c-card-rule);
 }
 
 .cover__counts li {
@@ -355,9 +392,10 @@ body {
   grid-column: 1 / -1;
 }
 
+/* Long values (URL, stack) in the text color like the others, a step lighter
+   in weight so they do not outweigh the short ones above. */
 .cover__meta .wide dd {
   font-weight: 400;
-  color: var(--c-muted);
 }
 
 .cover__meta a {
@@ -481,7 +519,9 @@ code,
   color: var(--ink-muted);
   padding: 0.6mm 2.6mm;
   border: 1px solid var(--rule);
-  border-radius: calc(var(--radius) * 5);
+  /* The body cards' corners, capped like .cover__tag so it never turns
+     into a pill. */
+  border-radius: min(var(--radius), 1.8mm);
   background: var(--surface);
   font-variant-numeric: tabular-nums;
 }
@@ -506,8 +546,8 @@ code,
 .method {
   font-size: calc(8.8pt * var(--text-scale));
   color: var(--ink-muted);
-  background: var(--surface);
-  border: 1px solid var(--rule);
+  background: var(--card-bg, var(--surface));
+  border: 1px solid var(--card-rule);
   padding: 4mm 5mm;
   border-radius: var(--radius);
 }
@@ -576,9 +616,9 @@ code,
 
 .glance__cell {
   padding: 4mm 4.5mm;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--card-rule);
   border-radius: var(--radius);
-  background: var(--paper);
+  background: var(--card-bg);
   break-inside: avoid;
 }
 
@@ -621,10 +661,12 @@ code,
   gap: 1.4mm;
   margin-top: 2.5mm;
   padding: 0.4mm 2mm 0.4mm 1.6mm;
-  border-radius: calc(var(--radius) * 5);
+  /* The body cards' corners, capped like .cover__tag so it never turns
+     into a pill. */
+  border-radius: min(var(--radius), 1.8mm);
   font-size: calc(7.6pt * var(--text-scale));
   font-weight: 600;
-  background: var(--tone-bg);
+  background: color-mix(in srgb, var(--tone) var(--tone-mix), var(--card-bg));
   color: var(--tone);
 }
 
@@ -650,6 +692,8 @@ code,
   font-size: calc(8pt * var(--text-scale));
   font-weight: 500;
   color: var(--ink-muted);
+  /* The page's own tone, not a tint: the rule below and the muted labels
+     already set the header apart. */
   background: var(--surface);
   border-bottom: 1px solid var(--rule);
   padding: 2mm 3.5mm;
@@ -865,7 +909,7 @@ code,
 .qbar > span {
   display: block;
   height: 100%;
-  background: var(--accent);
+  background: var(--ink);
 }
 
 /* --- Finding cards ------------------------------------------------------- */
@@ -878,19 +922,21 @@ code,
   display: grid;
   grid-template-columns: 7mm 1fr;
   gap: 0 4mm;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--card-rule);
   border-radius: var(--radius);
   padding: 4.5mm 5mm;
   margin-bottom: 3mm;
-  background: var(--paper);
+  background: var(--card-bg);
 }
 
+/* Tinted from the card it sits on, not the page, so a colored card keeps a
+   badge that belongs to it. */
 .finding__icon {
   width: 7mm;
   height: 7mm;
   padding: 1.5mm;
   border-radius: var(--radius-sm);
-  background: var(--tone-bg);
+  background: color-mix(in srgb, var(--tone) var(--tone-mix), var(--card-bg));
   color: var(--tone);
 }
 
@@ -962,6 +1008,16 @@ code,
   background: var(--ink);
 }
 
+/* Card text on the body's cards, when brand.json sets body.cards.text.
+   shell() works out the muted and faint shades; everything inside a card
+   reads --ink and its greys, so redefining them here recolors it all. */
+.has-card-text :is(.finding, .glance__cell, .method, .endslug) {
+  --ink: var(--cards-text);
+  --ink-muted: var(--cards-muted);
+  --ink-faint: var(--cards-faint);
+  color: var(--ink);
+}
+
 /* Evidence: what a reader can open to check the finding themselves. */
 .evidence {
   display: flex;
@@ -969,18 +1025,22 @@ code,
   gap: 2.5mm;
   margin-top: 3mm;
   padding: 2mm 3mm;
-  background: var(--surface);
-  border: 1px solid var(--rule);
+  /* The --evidence-* properties are body.evidence in brand.json, set by
+     shell() only when the brand names them. Without them it is a tint of the
+     card it sits in, with the card's border; with no card colors set that
+     is exactly --surface and --rule. */
+  background: var(--evidence-bg, color-mix(in srgb, var(--ink) 3.4%, var(--card-bg)));
+  border: 1px solid var(--evidence-border, var(--card-rule));
   border-radius: var(--radius-sm);
   font-size: calc(8.4pt * var(--text-scale));
-  color: var(--ink-muted);
+  color: var(--evidence-text, var(--ink-muted));
 }
 
 .evidence__k {
   flex: none;
   font-size: calc(7.8pt * var(--text-scale));
   font-weight: 500;
-  color: var(--ink-faint);
+  color: var(--evidence-label, var(--ink-faint));
   white-space: nowrap;
 }
 
@@ -992,7 +1052,7 @@ code,
 .evidence--verbatim .evidence__v {
   font-family: var(--font-mono);
   font-size: calc(7.8pt * var(--text-scale));
-  color: var(--ink);
+  color: var(--evidence-text, var(--ink));
   word-break: break-all;
 }
 
@@ -1106,9 +1166,9 @@ code,
   width: 7mm;
   height: 7mm;
   border-radius: 50%;
-  border: 1px solid var(--brand-100);
-  background: var(--brand-050);
-  color: var(--accent);
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
   font-size: calc(8.6pt * var(--text-scale));
   font-weight: 600;
   line-height: calc(7mm - 2px);
@@ -1168,9 +1228,9 @@ code,
 .endslug {
   margin-top: 14mm;
   padding: 6mm;
-  border: 1px solid var(--rule);
+  border: 1px solid var(--card-rule);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--card-bg);
   display: flex;
   align-items: center;
   justify-content: space-between;
