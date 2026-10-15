@@ -1,7 +1,8 @@
 /* ==========================================================================
    SEO audit report — print stylesheet
    Target: A4 via Chrome page.pdf({ printBackground: true })
-   All units are physical (mm/pt) or absolute (px @ 96dpi). No viewport units,
+   All units are physical (mm/pt) or absolute (px @ 96dpi). Font sizes are
+   pt × var(--text-scale), never a bare pt value. No viewport units,
    no fluid scaling — this is paper, not a screen.
 
    Visual language: neutral greys and hairline borders carry the structure;
@@ -41,12 +42,22 @@
   --pass: #167e4c;
   --pass-bg: #ebf7f0;
 
+  /* Every rounded corner is a multiple of this, so a surface's `radius` in
+     brand.json (set per render by shell()) rounds or squares the whole page
+     in proportion. 50% circles are shapes, not corners, and stay as they are. */
   --radius: 2mm;
-  --radius-sm: 1.2mm;
+  --radius-sm: calc(var(--radius) * 0.6);
 
   /* shell() overrides --font-sans when brand.json names a font. */
   --font-sans: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
   --font-mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+
+  /* Every pt font-size below is multiplied by this, so the whole type scale
+     grows in proportion. The sizes are written for a 9.4pt body; shell() sets
+     the factor from brand.json's `textSize` (see TEXT_SIZES in src/theme.ts).
+     The px sizes inside the SVG dials are viewBox units: the dials' own
+     width and height carry the factor instead. */
+  --text-scale: 1;
 }
 
 /* A dark surface. The status tints above are pale pastels for white paper;
@@ -82,7 +93,7 @@ html {
 body {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 9.4pt;
+  font-size: calc(9.4pt * var(--text-scale));
   line-height: 1.55;
   color: var(--ink);
   background: var(--paper);
@@ -148,21 +159,6 @@ body {
   --c-accent: var(--accent);
 }
 
-/* A dot grid in the top-right corner, fading out towards the title. */
-.cover::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 120mm;
-  height: 150mm;
-  background-image: radial-gradient(circle, var(--c-rule) 0.32mm, transparent 0.42mm);
-  background-size: 5mm 5mm;
-  background-position: 2.5mm 2.5mm;
-  -webkit-mask-image: radial-gradient(ellipse 100% 100% at 100% 0%, #000 20%, transparent 72%);
-  mask-image: radial-gradient(ellipse 100% 100% at 100% 0%, #000 20%, transparent 72%);
-}
-
 .cover > * {
   position: relative;
 }
@@ -204,12 +200,12 @@ body {
 }
 
 .cover__tag {
-  font-size: 8.4pt;
+  font-size: calc(8.4pt * var(--text-scale));
   font-weight: 500;
   color: var(--c-muted);
   padding: 1mm 3mm;
   border: 1px solid var(--c-rule);
-  border-radius: 10mm;
+  border-radius: calc(var(--radius) * 5);
   background: var(--c-card);
 }
 
@@ -222,14 +218,14 @@ body {
 /* Stands in for the logo when brand.json names none. */
 .wordmark {
   display: block;
-  font-size: 15pt;
+  font-size: calc(15pt * var(--text-scale));
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
 
 .endslug .wordmark {
-  font-size: 12pt;
+  font-size: calc(12pt * var(--text-scale));
   color: var(--ink);
 }
 
@@ -238,14 +234,14 @@ body {
 }
 
 .cover__kicker {
-  font-size: 10pt;
+  font-size: calc(10pt * var(--text-scale));
   font-weight: 600;
   color: var(--c-accent);
 }
 
 .cover__site {
   margin: 5mm 0 0;
-  font-size: 42pt;
+  font-size: calc(24pt * var(--text-scale));
   line-height: 1.02;
   font-weight: 600;
   letter-spacing: -0.035em;
@@ -255,7 +251,7 @@ body {
 
 .cover__client {
   margin: 3.5mm 0 0;
-  font-size: 13pt;
+  font-size: calc(13pt * var(--text-scale));
   font-weight: 400;
   color: var(--c-muted);
 }
@@ -270,18 +266,18 @@ body {
   padding: 7mm;
   background: var(--c-card);
   border: 1px solid var(--c-rule);
-  border-radius: 3mm;
+  border-radius: calc(var(--radius) * 1.5);
 }
 
 .cover__score-label {
-  font-size: 8.6pt;
+  font-size: calc(8.6pt * var(--text-scale));
   font-weight: 500;
   color: var(--c-faint);
 }
 
 .cover__score-band {
   margin-top: 1mm;
-  font-size: 16pt;
+  font-size: calc(16pt * var(--text-scale));
   font-weight: 600;
   letter-spacing: -0.015em;
   line-height: 1.2;
@@ -305,7 +301,7 @@ body {
 }
 
 .cover__counts b {
-  font-size: 15pt;
+  font-size: calc(15pt * var(--text-scale));
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -317,7 +313,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1.5mm;
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   color: var(--c-muted);
 }
 
@@ -341,7 +337,7 @@ body {
 }
 
 .cover__meta dt {
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   font-weight: 500;
   color: var(--c-faint);
   margin: 0 0 1mm;
@@ -349,7 +345,7 @@ body {
 
 .cover__meta dd {
   margin: 0;
-  font-size: 9.6pt;
+  font-size: calc(9.6pt * var(--text-scale));
   font-weight: 500;
   color: var(--c-ink);
   overflow-wrap: anywhere;
@@ -370,10 +366,11 @@ body {
 }
 
 /* Score dial */
+/* Its numbers are in viewBox units, so the dial itself scales with the text. */
 .dial {
   flex: none;
-  width: 34mm;
-  height: 34mm;
+  width: calc(34mm * var(--text-scale));
+  height: calc(34mm * var(--text-scale));
 }
 
 .dial__track {
@@ -410,7 +407,7 @@ body {
 /* --- Typography ---------------------------------------------------------- */
 
 h2 {
-  font-size: 17pt;
+  font-size: calc(17pt * var(--text-scale));
   font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.2;
@@ -420,7 +417,7 @@ h2 {
 }
 
 h3 {
-  font-size: 10.4pt;
+  font-size: calc(10.4pt * var(--text-scale));
   font-weight: 600;
   letter-spacing: -0.008em;
   line-height: 1.35;
@@ -479,18 +476,18 @@ code,
 
 .section__count {
   flex: none;
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   font-weight: 500;
   color: var(--ink-muted);
   padding: 0.6mm 2.6mm;
   border: 1px solid var(--rule);
-  border-radius: 10mm;
+  border-radius: calc(var(--radius) * 5);
   background: var(--surface);
   font-variant-numeric: tabular-nums;
 }
 
 .section__hint {
-  font-size: 9pt;
+  font-size: calc(9pt * var(--text-scale));
   color: var(--ink-muted);
   margin: 0 0 5mm;
 }
@@ -501,13 +498,13 @@ code,
 }
 
 .lede {
-  font-size: 10.6pt;
+  font-size: calc(10.6pt * var(--text-scale));
   line-height: 1.65;
   color: var(--ink);
 }
 
 .method {
-  font-size: 8.8pt;
+  font-size: calc(8.8pt * var(--text-scale));
   color: var(--ink-muted);
   background: var(--surface);
   border: 1px solid var(--rule);
@@ -518,12 +515,12 @@ code,
 /* Data sources: one row per source, status on the right. */
 .sources {
   margin-top: 3mm;
-  font-size: 8.6pt;
+  font-size: calc(8.6pt * var(--text-scale));
   break-inside: avoid;
 }
 
 .sources__title {
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   font-weight: 600;
   color: var(--ink-muted);
   margin-bottom: 1.5mm;
@@ -566,7 +563,7 @@ code,
 }
 
 .dist span {
-  border-radius: 1mm;
+  border-radius: calc(var(--radius) * 0.5);
   background: var(--tone);
 }
 
@@ -589,14 +586,14 @@ code,
   display: flex;
   align-items: center;
   gap: 1.8mm;
-  font-size: 8.4pt;
+  font-size: calc(8.4pt * var(--text-scale));
   font-weight: 500;
   color: var(--ink-muted);
 }
 
 .glance__n {
   margin-top: 2.5mm;
-  font-size: 22pt;
+  font-size: calc(22pt * var(--text-scale));
   font-weight: 600;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -614,7 +611,7 @@ code,
 
 /* Values are longer than a finding count ("45 678", "2,3 s"). */
 .glance--metrics .glance__n {
-  font-size: 17pt;
+  font-size: calc(17pt * var(--text-scale));
 }
 
 /* A rating under a Core Web Vitals value: a tinted badge in its tone. */
@@ -624,15 +621,15 @@ code,
   gap: 1.4mm;
   margin-top: 2.5mm;
   padding: 0.4mm 2mm 0.4mm 1.6mm;
-  border-radius: 10mm;
-  font-size: 7.6pt;
+  border-radius: calc(var(--radius) * 5);
+  font-size: calc(7.6pt * var(--text-scale));
   font-weight: 600;
   background: var(--tone-bg);
   color: var(--tone);
 }
 
 .metrics__note {
-  font-size: 8.4pt;
+  font-size: calc(8.4pt * var(--text-scale));
   color: var(--ink-faint);
   margin: 0 0 4mm;
   overflow-wrap: anywhere;
@@ -642,7 +639,7 @@ code,
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 8.8pt;
+  font-size: calc(8.8pt * var(--text-scale));
   margin-bottom: 4mm;
   border: 1px solid var(--rule);
   border-radius: var(--radius);
@@ -650,7 +647,7 @@ code,
 
 .metrics__table th {
   text-align: left;
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   font-weight: 500;
   color: var(--ink-muted);
   background: var(--surface);
@@ -692,7 +689,7 @@ code,
    else. */
 
 .chart__title {
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   font-weight: 600;
   color: var(--ink-muted);
   margin: 0 0 2mm;
@@ -711,12 +708,12 @@ code,
   grid-template-columns: 42mm 1fr 9mm;
   align-items: center;
   gap: 3mm;
-  font-size: 8.6pt;
+  font-size: calc(8.6pt * var(--text-scale));
 }
 
 .bars__track {
   height: 2.6mm;
-  border-radius: 1.3mm;
+  border-radius: calc(var(--radius) * 0.65);
   background: var(--surface-2);
   overflow: hidden;
 }
@@ -724,7 +721,7 @@ code,
 .bars__track > span {
   display: block;
   height: 100%;
-  border-radius: 1.3mm;
+  border-radius: calc(var(--radius) * 0.65);
 }
 
 .bars__n {
@@ -749,7 +746,7 @@ code,
 }
 
 .cwv__name {
-  font-size: 9pt;
+  font-size: calc(9pt * var(--text-scale));
   font-weight: 600;
 }
 
@@ -757,14 +754,14 @@ code,
   position: relative;
   display: flex;
   height: 3mm;
-  border-radius: 1.5mm;
+  border-radius: calc(var(--radius) * 0.75);
   overflow: visible;
 }
 
 /* Stronger than the badge tints, which vanish on paper at this size. */
-.cwv__band--good { background: color-mix(in srgb, var(--pass) 28%, var(--paper)); border-radius: 1.5mm 0 0 1.5mm; }
+.cwv__band--good { background: color-mix(in srgb, var(--pass) 28%, var(--paper)); border-radius: calc(var(--radius) * 0.75) 0 0 calc(var(--radius) * 0.75); }
 .cwv__band--mid  { background: color-mix(in srgb, var(--warning) 28%, var(--paper)); }
-.cwv__band--poor { background: color-mix(in srgb, var(--critical) 28%, var(--paper)); flex: 1; border-radius: 0 1.5mm 1.5mm 0; }
+.cwv__band--poor { background: color-mix(in srgb, var(--critical) 28%, var(--paper)); flex: 1; border-radius: 0 calc(var(--radius) * 0.75) calc(var(--radius) * 0.75) 0; }
 
 .cwv__mark {
   position: absolute;
@@ -772,7 +769,7 @@ code,
   width: 1mm;
   height: 5.4mm;
   margin-left: -0.5mm;
-  border-radius: 0.5mm;
+  border-radius: calc(var(--radius) * 0.25);
   background: var(--tone);
   box-shadow: 0 0 0 0.4mm var(--paper);
 }
@@ -781,7 +778,7 @@ code,
   position: absolute;
   top: 4mm;
   transform: translateX(-50%);
-  font-size: 7pt;
+  font-size: calc(7pt * var(--text-scale));
   color: var(--ink-faint);
   white-space: nowrap;
 }
@@ -794,7 +791,7 @@ code,
 }
 
 .cwv__value b {
-  font-size: 12pt;
+  font-size: calc(12pt * var(--text-scale));
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -813,14 +810,15 @@ code,
 
 .gauge {
   margin: 0;
-  width: 26mm;
+  width: calc(26mm * var(--text-scale));
   text-align: center;
 }
 
+/* Like the dial, scaled so its viewBox-unit number keeps pace with the text. */
 .gauge svg {
   display: block;
-  width: 20mm;
-  height: 20mm;
+  width: calc(20mm * var(--text-scale));
+  height: calc(20mm * var(--text-scale));
   margin: 0 auto 1.5mm;
 }
 
@@ -847,7 +845,7 @@ code,
 }
 
 .gauge figcaption {
-  font-size: 8pt;
+  font-size: calc(8pt * var(--text-scale));
   color: var(--ink-muted);
   line-height: 1.3;
 }
@@ -859,7 +857,7 @@ code,
   width: 14mm;
   height: 1.8mm;
   margin-right: 2.5mm;
-  border-radius: 0.9mm;
+  border-radius: calc(var(--radius) * 0.45);
   background: var(--surface-2);
   overflow: hidden;
 }
@@ -914,7 +912,7 @@ code,
 
 .finding__body {
   margin-top: 1.5mm;
-  font-size: 9.2pt;
+  font-size: calc(9.2pt * var(--text-scale));
   color: var(--ink-muted);
 }
 
@@ -930,7 +928,7 @@ code,
   display: flex;
   align-items: center;
   gap: 1.6mm;
-  font-size: 7.8pt;
+  font-size: calc(7.8pt * var(--text-scale));
   white-space: nowrap;
 }
 
@@ -952,7 +950,7 @@ code,
 
 .meter i {
   width: 0.75mm;
-  border-radius: 0.3mm;
+  border-radius: calc(var(--radius) * 0.15);
   background: var(--rule-strong);
 }
 
@@ -974,13 +972,13 @@ code,
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius-sm);
-  font-size: 8.4pt;
+  font-size: calc(8.4pt * var(--text-scale));
   color: var(--ink-muted);
 }
 
 .evidence__k {
   flex: none;
-  font-size: 7.8pt;
+  font-size: calc(7.8pt * var(--text-scale));
   font-weight: 500;
   color: var(--ink-faint);
   white-space: nowrap;
@@ -993,7 +991,7 @@ code,
 /* A verbatim reference (URL, filename), not prose: monospace, may break anywhere. */
 .evidence--verbatim .evidence__v {
   font-family: var(--font-mono);
-  font-size: 7.8pt;
+  font-size: calc(7.8pt * var(--text-scale));
   color: var(--ink);
   word-break: break-all;
 }
@@ -1029,7 +1027,7 @@ code,
 }
 
 .check h3 {
-  font-size: 9.6pt;
+  font-size: calc(9.6pt * var(--text-scale));
   font-weight: 500;
   /* A check is title-only, so h3 is its last child and h3's break-after:
      avoid would chain every row into one unbreakable block. */
@@ -1044,7 +1042,7 @@ code,
 /* --- Custom sections and figures ----------------------------------------- */
 
 .custom__body {
-  font-size: 9.4pt;
+  font-size: calc(9.4pt * var(--text-scale));
   color: var(--ink-muted);
 }
 
@@ -1068,7 +1066,7 @@ code,
 
 .figure figcaption {
   margin-top: 2mm;
-  font-size: 8.2pt;
+  font-size: calc(8.2pt * var(--text-scale));
   color: var(--ink-faint);
 }
 
@@ -1111,7 +1109,7 @@ code,
   border: 1px solid var(--brand-100);
   background: var(--brand-050);
   color: var(--accent);
-  font-size: 8.6pt;
+  font-size: calc(8.6pt * var(--text-scale));
   font-weight: 600;
   line-height: calc(7mm - 2px);
   text-align: center;
@@ -1123,7 +1121,7 @@ code,
 }
 
 .roadmap p {
-  font-size: 9.2pt;
+  font-size: calc(9.2pt * var(--text-scale));
   color: var(--ink-muted);
   margin: 1mm 0 0;
 }
@@ -1156,11 +1154,11 @@ code,
 }
 
 .notcovered h3 {
-  font-size: 9.8pt;
+  font-size: calc(9.8pt * var(--text-scale));
 }
 
 .notcovered p {
-  font-size: 9pt;
+  font-size: calc(9pt * var(--text-scale));
   color: var(--ink-muted);
   margin: 0.8mm 0 0;
 }
@@ -1191,7 +1189,7 @@ code,
 
 .endslug__text {
   text-align: right;
-  font-size: 8.6pt;
+  font-size: calc(8.6pt * var(--text-scale));
   color: var(--ink-muted);
   line-height: 1.6;
 }

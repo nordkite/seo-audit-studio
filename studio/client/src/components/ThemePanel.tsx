@@ -12,19 +12,35 @@ import {
 } from "@/components/ui/select";
 import {
   DEFAULT_BACKGROUND,
+  DEFAULT_RADIUS,
   DEFAULT_TEXT,
   isHex,
+  isRadius,
+  MAX_RADIUS,
   resolveSurface,
+  TEXT_SIZES,
   type BrandDoc,
   type BrandTheme,
   type LogoVariant,
   type SurfaceName,
+  type TextSize,
 } from "@/lib/types";
 
 const LOGO_LABELS: Record<LogoVariant, string> = {
   logo: "Logo",
   logoOnDark: "Logo on dark",
 };
+
+const TEXT_SIZE_LABELS: Record<TextSize, string> = {
+  small: "Small",
+  default: "Default",
+  medium: "Medium",
+  large: "Large",
+};
+const textSizeItems = (Object.keys(TEXT_SIZES) as TextSize[]).map((v) => ({
+  value: v,
+  label: `${TEXT_SIZE_LABELS[v]} — ${TEXT_SIZES[v]}pt`,
+}));
 
 /**
  * Colors and logo for the surface the preview is showing, plus the primary
@@ -93,11 +109,34 @@ export function ThemePanel({
             </SelectContent>
           </Select>
         </div>
+        <RadiusField
+          value={surface.radius ?? DEFAULT_RADIUS}
+          onChange={(radius) => setSurface({ radius })}
+        />
         <ColorField
           label="Primary (both)"
           value={draft.primary}
           onChange={(primary) => onChange({ ...draft, primary })}
         />
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Text size (body)</Label>
+          <Select
+            value={draft.textSize}
+            onValueChange={(v) => onChange({ ...draft, textSize: v as TextSize })}
+            items={textSizeItems}
+          >
+            <SelectTrigger className="h-8 w-full text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {textSizeItems.map((i) => (
+                <SelectItem key={i.value} value={i.value}>
+                  {i.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -125,6 +164,34 @@ export function ThemePanel({
           Save to brand.json
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Corner radius of this surface's cards and panels, in mm. */
+function RadiusField({ value, onChange }: { value: number; onChange: (mm: number) => void }) {
+  // As with ColorField, only a valid number reaches the draft.
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const parse = (v: string) => (v.trim() === "" ? NaN : Number(v));
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">Corner radius (mm)</Label>
+      <Input
+        type="number"
+        min={0}
+        max={MAX_RADIUS}
+        step={0.5}
+        value={text}
+        aria-invalid={!isRadius(parse(text))}
+        onChange={(e) => {
+          setText(e.target.value);
+          const mm = parse(e.target.value);
+          if (isRadius(mm)) onChange(mm);
+        }}
+        className="h-8 text-sm"
+      />
     </div>
   );
 }

@@ -19,11 +19,31 @@ export interface SurfaceConfig {
   text?: string;
   /** Without it, chosen by how dark `background` is. */
   logo?: LogoVariant;
+  /** Corner radius of cards and panels, in mm. 0 is square. */
+  radius?: number;
 }
+
+/**
+ * Body text size of the report pages, in pt. report.css is written for a 9.4pt
+ * body and multiplies every font size by `--text-scale`, so headings, labels
+ * and tables grow with it, on the cover too. 12pt is 16px; small is the
+ * original 9.4pt.
+ */
+export const TEXT_SIZES = { small: 9.4, default: 12, medium: 13, large: 14 } as const;
+export type TextSize = keyof typeof TEXT_SIZES;
+export const DEFAULT_TEXT_SIZE: TextSize = "default";
+const CSS_BODY_PT = 9.4;
+
+export const isTextSize = (v: unknown): v is TextSize =>
+  typeof v === "string" && Object.hasOwn(TEXT_SIZES, v);
+
+/** The `--text-scale` factor for a text size. */
+export const textScale = (size: TextSize): number => +(TEXT_SIZES[size] / CSS_BODY_PT).toFixed(4);
 
 /** The theme part of brand.json: what the Studio reads and writes. */
 export interface BrandTheme {
   primary: string;
+  textSize: TextSize;
   cover: SurfaceConfig;
   body: SurfaceConfig;
 }
@@ -36,11 +56,17 @@ export interface Surface {
   accent: string;
   dark: boolean;
   logo: LogoVariant;
+  radius: number;
 }
 
 export const DEFAULT_PRIMARY = "#293451";
 export const DEFAULT_BACKGROUND = "#ffffff";
 export const DEFAULT_TEXT = "#121212";
+export const DEFAULT_RADIUS = 2;
+export const MAX_RADIUS = 10;
+
+export const isRadius = (v: unknown): v is number =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MAX_RADIUS;
 
 export const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v);
 
@@ -73,5 +99,6 @@ export function resolveSurface(cfg: SurfaceConfig, primary: string): Surface {
     accent: contrast(primary, background) >= 3 ? primary : text,
     dark,
     logo: cfg.logo ?? (dark ? "logoOnDark" : "logo"),
+    radius: cfg.radius ?? DEFAULT_RADIUS,
   };
 }

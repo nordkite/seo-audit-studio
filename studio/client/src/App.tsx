@@ -278,7 +278,6 @@ export default function App() {
               busy={busy || translating !== null}
               onSave={save}
               onTranslate={translate}
-              onRender={render}
               onNewForSite={openNewForSite}
               onDelete={remove}
             />
@@ -402,7 +401,7 @@ export default function App() {
           </div>
 
           <div className="hidden min-h-0 border-l xl:block">
-            <PreviewPane report={report!} lang={lang} />
+            <PreviewPane report={report!} lang={lang} busy={busy || translating !== null} onRender={render} />
           </div>
         </div>
       )}

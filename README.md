@@ -140,6 +140,17 @@ Translation is cached into the report JSON, so it is paid once per report rather
 than once per render. Adding a fourth language later means translating the JSON —
 not re-auditing the site.
 
+Two kinds of text get translated, and they live in different places:
+
+| What | Where | Translated |
+|---|---|---|
+| Findings, summary, method, custom sections | `reports/<slug>.json`, as `{ en, et, ru }` | per report, by `/translate-report` or the Studio's **Translate** |
+| Report chrome: section titles, labels, score bands, severity names | `i18n/<lang>.json` | once per language, by hand, shared by every report |
+
+To change a fixed label in the PDF ("Findings at a glance", "Critical", "Page 1
+of 15"), edit `i18n/<lang>.json`, not a report. Protected terms are in
+`i18n/glossary.json` and the house style in `i18n/translation-rules.md`.
+
 ## Report Studio
 
 A local editor for the same JSON — drag findings between severities, add sections
@@ -157,7 +168,7 @@ It binds to 127.0.0.1 only — it writes to `reports/` and spawns `claude`.
 |---|---|
 | **Save** | Validates, backs up to `.studio-backups/`, writes atomically |
 | **Translate** | Fills the current language — see below |
-| **Render PDF** | Runs `npm run report -- <slug> --all` |
+| **Render PDF** | In the preview header. Renders the language on screen to `out/`, from the saved report and `brand.json` |
 
 The theme follows your OS by default; the sun/moon menu in the top right pins it
 to light or dark.
@@ -311,9 +322,15 @@ folio'd.
 ## Adding a language
 
 1. Add the code to `LANGS` in [src/types.ts](src/types.ts)
-2. Copy `i18n/en.json` to `i18n/<code>.json` and translate it — this is the fixed
+2. Add its name to `LANG_LABEL` in
+   [studio/client/src/lib/report.ts](studio/client/src/lib/report.ts), for the
+   Studio's language picker. `npm run typecheck` fails until you do
+3. Copy `i18n/en.json` to `i18n/<code>.json`, set its `locale` (dates and
+   numbers are formatted with it) and `langName`, and translate the rest. This is the fixed
    report chrome, translated once and reused by every report forever
-3. Run `/translate-report <slug> <code>` per report to fill in the findings
+4. Fill in each report's findings: run `/translate-report <slug> <code>`, or open
+   the report in the Studio, pick the language and click **Translate**. Both use
+   the same rules and glossary
 
 Check the brand font covers the new language's script (see Fonts below). A font
 without it falls back to Arial for those letters.

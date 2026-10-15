@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Loader2, Palette } from "lucide-react";
+import { FileDown, Loader2, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemePanel } from "@/components/ThemePanel";
 import { api } from "@/lib/api";
+import { LANG_LABEL } from "@/lib/report";
 import { cn } from "@/lib/utils";
 import type { BrandDoc, BrandTheme, Lang, Report } from "@/lib/types";
 
@@ -15,9 +16,13 @@ const PAGE_HEIGHT_PX = (297 / 25.4) * 96;
 interface Props {
   report: Report;
   lang: Lang;
+  /** A save, render or translation is under way. */
+  busy: boolean;
+  /** Renders the saved report in `lang` to a PDF in out/. */
+  onRender: () => void;
 }
 
-export function PreviewPane({ report, lang }: Props) {
+export function PreviewPane({ report, lang, busy, onRender }: Props) {
   const [part, setPart] = useState<"body" | "cover">("body");
   const [html, setHtml] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +139,16 @@ export function PreviewPane({ report, lang }: Props) {
             className={cn("h-7 text-xs text-foreground", themeOpen && "bg-muted")}
           >
             <Palette /> Customize
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onRender}
+            disabled={busy}
+            title={`Render the ${LANG_LABEL[lang]} PDF from the saved report and brand.json`}
+            className="h-7 text-xs text-foreground"
+          >
+            <FileDown /> Render PDF
           </Button>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { FileDown, Languages, Loader2, Plus, Save, Trash2 } from "lucide-react";
+import { Languages, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import type { Lang } from "@/lib/types";
 interface Props {
   slug: string;
   site: string;
-  /** The language on screen: what Translate and Render PDF act on. */
+  /** The language on screen: what Translate acts on. */
   lang: Lang;
   sourceLang: Lang;
   /** The language picker — owned by App, shown beside the actions it drives. */
@@ -26,7 +26,6 @@ interface Props {
   busy: boolean;
   onSave: () => void;
   onTranslate: (lang: Lang) => void;
-  onRender: () => void;
   /** Another report for the open report's site. */
   onNewForSite: () => void;
   /** Resolves once the report is gone; rejects to keep the dialog open. */
@@ -48,7 +47,6 @@ export function ReportToolbar({
   busy,
   onSave,
   onTranslate,
-  onRender,
   onNewForSite,
   onDelete,
 }: Props) {
@@ -87,10 +85,6 @@ export function ReportToolbar({
         }
       >
         <Languages className="size-3.5" /> Translate
-      </Button>
-
-      <Button size="sm" variant="outline" onClick={onRender} disabled={busy} title={`Render the ${LANG_LABEL[lang]} PDF`}>
-        <FileDown className="size-3.5" /> Render PDF
       </Button>
 
       {dirty && <span className="text-xs text-muted-foreground">unsaved changes</span>}

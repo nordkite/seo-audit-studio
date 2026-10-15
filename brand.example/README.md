@@ -17,18 +17,20 @@ repo and pulling updates never conflicts with it.
 | `logoOnDark` | no | Logo for dark surfaces. Without one, `logo` is turned solid white where a surface asks for `logoOnDark` |
 | `colors.primary` | no | The accent: cover kicker and roadmap steps. 6-digit hex. Lighter tints are derived from it. On a background it would not read on, the accent falls back to that surface's text color |
 | `font` | no | Typeface for the whole report, by folder name under `fonts/`: `"manrope"`. Without it, the system sans. See [fonts/README.md](../fonts/README.md) |
+| `textSize` | no | Body text size of the report pages: `"small"` (9.4pt, the original size), `"default"` (12pt, 16px), `"medium"` (13pt) or `"large"` (14pt). Headings, labels, tables and score dials scale with it, on the cover too |
 | `cover` | no | The cover page's surface, see below |
 | `body` | no | Every page after the cover, see below |
 
-## Cover and body colors
+## Cover and body surfaces
 
-`cover` and `body` take the same three optional fields:
+`cover` and `body` take the same four optional fields:
 
 | Field | Default | |
 |---|---|---|
 | `background` | `#ffffff` | 6-digit hex |
 | `text` | `#121212` | 6-digit hex. Secondary text, rules, card fills and tints are all mixed from `text` and `background`, so these two colors restyle the whole surface |
 | `logo` | by background | `"logo"` or `"logoOnDark"`. Left out, a dark background gets `logoOnDark` and a light one `logo`. On the body this is the logo on the last page |
+| `radius` | `2` | Corner radius of cards, panels, badges and bars, in mm, from 0 (square) to 10. Every rounded corner on the surface scales with it; circles stay circles |
 
 ```json
 "cover": { "background": "#1f3a5f", "text": "#ffffff", "logo": "logoOnDark" },
@@ -41,7 +43,7 @@ The older shorthands still work: `"cover": "light"` is the default, and
 The Studio edits these too: the palette button above the preview shows the
 colors of whichever part, Body or Cover, is open. Changes preview at once and
 are written to `brand.json` only when you click **Save to brand.json**. That
-replaces `colors.primary`, `cover` and `body`, and leaves every other field as
+replaces `colors.primary`, `textSize`, `cover` and `body`, and leaves every other field as
 it is.
 
 `logo` and `logoOnDark` are a file in this folder (`logo.svg`) or an

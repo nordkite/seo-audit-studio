@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadStrings, t, formatDate, formatNumber, type Strings } from "./i18n.ts";
 import { loadBrand, type Brand } from "./brand.ts";
-import type { LogoVariant, Surface } from "./theme.ts";
+import { textScale, type LogoVariant, type Surface } from "./theme.ts";
 import {
   CATEGORIES,
   DATA_SOURCES,
@@ -492,16 +492,25 @@ function fontStack(brand: Brand): string {
 /**
  * The brand color, the surface's colors and the font go in as custom
  * properties. report.css derives every grey, rule and tint from them, so a
- * dark surface needs no rules of its own beyond .surface--dark.
+ * dark surface needs no rules of its own beyond .surface--dark. brand.json's
+ * text size scales both the cover and the body.
  */
-function shell(lang: Lang, title: string, body: string, brand: Brand, surface: Surface): string {
+function shell(
+  lang: Lang,
+  title: string,
+  body: string,
+  brand: Brand,
+  surface: Surface
+): string {
   const css = readFileSync(join(ROOT, "templates", "report.css"), "utf8");
   const vars = [
     `--brand: ${brand.primary}`,
     `--paper: ${surface.background}`,
     `--ink: ${surface.text}`,
     `--accent: ${surface.accent}`,
+    `--radius: ${surface.radius}mm`,
     `--font-sans: ${fontStack(brand)}`,
+    `--text-scale: ${textScale(brand.textSize)}`,
   ].join("; ");
   return `<!doctype html>
 <html lang="${lang}"${surface.dark ? ` class="surface--dark"` : ""}>

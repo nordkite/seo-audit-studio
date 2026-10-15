@@ -2,13 +2,19 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   DEFAULT_PRIMARY,
+  DEFAULT_TEXT_SIZE,
   LOGO_VARIANTS,
+  TEXT_SIZES,
   SURFACES,
   isHex,
+  isRadius,
+  isTextSize,
+  MAX_RADIUS,
   resolveSurface,
   type BrandTheme,
   type Surface,
   type SurfaceConfig,
+  type TextSize,
 } from "./theme.ts";
 
 /**
@@ -46,6 +52,8 @@ export interface BrandConfig {
    * the shared library at the repo root. Without it, the system sans stack.
    */
   font?: string;
+  /** Text size of the report, cover included: "small" (9.4pt), "default" (12pt), "medium" or "large". */
+  textSize?: TextSize;
   /**
    * Background, text color and logo of the cover. The older shorthands still
    * work: "light" is the default, "brand" sets the cover on the primary color.
@@ -84,6 +92,7 @@ export interface Brand {
   logoOnDark: string | null;
   primary: string;
   font: BrandFont | null;
+  textSize: TextSize;
   cover: Surface;
   body: Surface;
   /** True when brand/ is missing and the example stands in for it. */
@@ -236,6 +245,7 @@ export function themeOf(cfg: BrandConfig): BrandTheme {
   const primary = cfg.colors?.primary ?? DEFAULT_PRIMARY;
   return {
     primary,
+    textSize: isTextSize(cfg.textSize) ? cfg.textSize : DEFAULT_TEXT_SIZE,
     cover: surfaceConfig(cfg.cover, primary),
     body: surfaceConfig(cfg.body, primary),
   };
@@ -248,6 +258,7 @@ export function withTheme(cfg: BrandConfig, theme: BrandTheme): BrandConfig {
   return {
     ...cfg,
     colors: { ...cfg.colors, primary: theme.primary },
+    textSize: theme.textSize,
     cover: clean(theme.cover),
     body: clean(theme.body),
   };
@@ -266,6 +277,9 @@ function checkSurface(raw: unknown, field: string, problems: string[]): void {
     if (s[key] !== undefined && !isHex(s[key])) {
       problems.push(`\`${field}.${key}\` must be a 6-digit hex color, like #ffffff`);
     }
+  }
+  if (s.radius !== undefined && !isRadius(s.radius)) {
+    problems.push(`\`${field}.radius\` must be a number of mm from 0 to ${MAX_RADIUS}, like 2`);
   }
   if (s.logo !== undefined && !LOGO_VARIANTS.includes(s.logo as never)) {
     problems.push(`\`${field}.logo\` must be one of ${LOGO_VARIANTS.map((v) => `"${v}"`).join(", ")}`);
@@ -302,6 +316,10 @@ export function resolveBrand(
 
   const font = cfg.font ? loadFont(dir, cfg.font, problems) : null;
 
+  if (cfg.textSize !== undefined && !isTextSize(cfg.textSize)) {
+    problems.push(`\`textSize\` must be one of ${Object.keys(TEXT_SIZES).map((k) => `"${k}"`).join(", ")}`);
+  }
+
   if (problems.length) throw invalid(file, problems);
 
   const theme = themeOf(cfg);
@@ -316,6 +334,7 @@ export function resolveBrand(
     logoOnDark,
     primary,
     font,
+    textSize: theme.textSize,
     cover: resolveSurface(theme.cover, primary),
     body: resolveSurface(theme.body, primary),
     isExample,
