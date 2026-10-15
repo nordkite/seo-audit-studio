@@ -697,8 +697,8 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
     ${dataSourcesList(m.dataSources, s)}
   </section>
 
-  ${report.metrics?.searchConsole ? searchConsoleSection(report.metrics.searchConsole, s, s.locale) : ""}
   ${report.metrics?.coreWebVitals ? coreWebVitalsSection(report.metrics.coreWebVitals, s, s.locale) : ""}
+  ${report.metrics?.searchConsole ? searchConsoleSection(report.metrics.searchConsole, s, s.locale) : ""}
 
   ${at("breakdown")}
 

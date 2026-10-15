@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FileDown, Languages, Loader2, Plus, Save, Trash2 } from "lucide-react";
 import {
   Dialog,
@@ -19,6 +19,8 @@ interface Props {
   /** The language on screen: what Translate and Render PDF act on. */
   lang: Lang;
   sourceLang: Lang;
+  /** The language picker — owned by App, shown beside the actions it drives. */
+  langPicker?: ReactNode;
   dirty: boolean;
   /** A save, render or translation is under way. */
   busy: boolean;
@@ -41,6 +43,7 @@ export function ReportToolbar({
   site,
   lang,
   sourceLang,
+  langPicker,
   dirty,
   busy,
   onSave,
@@ -66,6 +69,8 @@ export function ReportToolbar({
 
   return (
     <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+      {langPicker}
+      
       <Button size="sm" variant={dirty ? "default" : "outline"} onClick={onSave} disabled={busy || !dirty}>
         <Save className="size-3.5" /> Save
       </Button>

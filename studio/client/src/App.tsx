@@ -273,6 +273,7 @@ export default function App() {
               site={report!.meta.site}
               lang={lang}
               sourceLang={source}
+              langPicker={doc && <LangSelect doc={doc} lang={lang} onLang={setLang} />}
               dirty={dirty}
               busy={busy || translating !== null}
               onSave={save}
@@ -401,11 +402,7 @@ export default function App() {
           </div>
 
           <div className="hidden min-h-0 border-l xl:block">
-            <PreviewPane
-              report={report!}
-              lang={lang}
-              langPicker={doc && <LangSelect doc={doc} lang={lang} onLang={setLang} />}
-            />
+            <PreviewPane report={report!} lang={lang} />
           </div>
         </div>
       )}

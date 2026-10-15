@@ -42,7 +42,7 @@ export function LangSelect({ doc, lang, onLang }: Props) {
       onValueChange={(v) => v && onLang(v as Lang)}
       items={LANGS.map((l) => ({ value: l, label: LANG_LABEL[l] }))}
     >
-      <SelectTrigger className="h-8 w-36 text-sm">
+      <SelectTrigger size="sm" className="w-36 text-[0.8rem]">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
