@@ -550,6 +550,10 @@ code,
   border: 1px solid var(--card-rule);
   padding: 4mm 5mm;
   border-radius: var(--radius);
+  /* Long enough that it may split across pages. Without clone, each fragment
+     loses its border, corners and padding at the page edge. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* Data sources: one row per source, status on the right. */
@@ -927,6 +931,10 @@ code,
   padding: 4.5mm 5mm;
   margin-bottom: 3mm;
   background: var(--card-bg);
+  /* A finding taller than a page splits despite the rule above; keep its
+     border closed on both fragments when it does. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* Tinted from the card it sits on, not the page, so a colored card keeps a
