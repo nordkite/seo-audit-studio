@@ -761,8 +761,8 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
 
   ${at("breakdown")}
 
-  ${SEVERITIES.map((sev, i) =>
-    severitySection(sev, report.findings, lang, sourceLang, s, { breakBefore: i === 0 })
+  ${SEVERITIES.map((sev) =>
+    severitySection(sev, report.findings, lang, sourceLang, s, { breakBefore: true })
   ).join("")}
 
   ${at("findings")}

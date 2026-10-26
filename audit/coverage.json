@@ -1,6 +1,6 @@
 {
   "_comment": "What every audit must cover, read by /new-audit and /new-page-audit. `subagents` is what claude-seo should run, listed so the commands can check it actually did; a missing one goes in `method` and `notCovered`, never silently. `supplements` are this repo's own additions for gaps in claude-seo. Each says why it exists and when to delete it. When claude-seo is upgraded past `claudeSeoVersion`, re-check every `gap` and delete supplements claude-seo now covers itself.",
-  "claudeSeoVersion": "2.4.2",
+  "claudeSeoVersion": "2.5.0",
 
   "subagents": {
     "site": {
@@ -90,6 +90,18 @@
       },
       "gap": "seo-audit only measures Core Web Vitals through seo-google when credentials exist, and seo-page never measures them. PageSpeed Insights works without a key, so every report can carry lab numbers.",
       "removeWhen": "both claude-seo audits run PageSpeed Insights without credentials."
+    },
+    {
+      "id": "stack-cve",
+      "scope": ["site", "page"],
+      "when": "always",
+      "run": "\"$CLAUDE_SEO\" run fetch_page.py <url> --json, then classify its headers and HTML by claude-seo's skills/seo-technical/references/stack-cve-exposure.md (in the plugin install, two levels above \"$CLAUDE_SEO\")",
+      "target": {
+        "site": "the homepage",
+        "page": "the audited URL"
+      },
+      "gap": "claude-seo 2.5.0 added the server stack CVE check to the seo-technical skill only. Audits spawn the seo-technical agent, whose Security category is still HTTPS and headers, so the check does not run.",
+      "removeWhen": "agents/seo-technical.md runs the stack CVE check."
     }
   ]
 }

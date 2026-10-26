@@ -62,6 +62,17 @@ apart is what lets claude-seo update without touching anything here.
      unavailable (step 2). Its four Lighthouse scores (performance,
      accessibility, best practices, SEO) go in `coreWebVitals` either way; the
      report draws them as gauges.
+   - **`stack-cve`** reads only the response it fetched. Do not ask whether
+     the client owns the site and do not request any other path
+     (`/wp-login.php`, `/xmlrpc.php`): the reference allows that only after the
+     owner confirms, and the Studio runs this unattended. Map its bands:
+     High (PHP version below the fixed list) → `warning`, "likely exposed,
+     confirm with the host", with the `X-Powered-By` value as evidence. Info
+     (a PHP signal, version hidden) → `opportunity`, with the signal as
+     evidence and the fixed versions in `body`. Pass (no PHP signal) → `pass`,
+     and say in `method` that it is an external read, not proof that no PHP
+     runs anywhere. Never `critical`: that needs the owner to confirm an
+     unpatched build, which an outside audit cannot.
 
 2. **Collect measured data** for `metrics`, and record every source in
    `meta.dataSources` (see Field rules) whether it was used or not.
@@ -97,8 +108,25 @@ apart is what lets claude-seo update without touching anything here.
    - **Roadmap.** Use claude-seo's prioritised action plan, rewritten for a
      client: what to do first, and which items are configuration versus which
      actually move rankings.
-   - **Method.** Say what claude-seo measured and how, including the claude-seo
-     version from the preflight, and what could not be measured.
+   - **Competitors and rankings.** A claim about who ranks for a query, or what
+     competitors do, needs search results from the site's own market: its
+     country and languages (google.ee in Estonian and Russian for an Estonian
+     site, not google.com). claude-seo gets those only through DataForSEO with
+     the location set. WebSearch cannot set a country and searches from the US,
+     so its results never back such a claim. Without market results, keep a
+     finding whose problem stands on the site's own evidence (no branch pages,
+     no landing page for a product line) and drop the competitor comparison
+     from it. Add a `notCovered` entry for competitor rankings in that market.
+     Positions from the site's own Search Console are real data and need no
+     such check.
+   - **Method.** Write it for the site owner, not an SEO specialist: a short
+     paragraph on where the data came from, which period it covers, and what
+     the report leaves out and why. No jargon the client would have to look up:
+     "Chrome data from real visitors over the last 28 days", not "CrUX p75
+     origin-level"; "a test on a simulated slow mobile connection", not "lab
+     run with slow-4G throttling". Terms the findings themselves use (`LCP`,
+     `canonical`) are fine. End with one line giving the claude-seo version
+     from the preflight and the sample sizes.
 
 4. **Write `reports/<slug>.json`.** Findings in English only.
    `/translate-report` fills in `et` and `ru` afterwards. Run

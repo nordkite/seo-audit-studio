@@ -11,7 +11,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadBrand, BRAND_DIR, EXAMPLE_DIR } from "../src/brand.ts";
 
@@ -56,6 +56,30 @@ const INSTALL_PLUGIN = [
   "claude plugin marketplace add AgriciDaniel/claude-seo --scope project",
   `claude plugin install ${PLUGIN_ID} --scope project`,
 ];
+
+interface PluginInstall {
+  id: string;
+  enabled: boolean;
+  version: string;
+  installPath: string;
+  scope?: string;
+  projectPath?: string;
+}
+
+/**
+ * claude-seo can be installed at several scopes at once: `npm run setup` adds
+ * it at project scope, and a user may also have it user-wide. Prefer the one
+ * scoped to this repo, and return the rest so a version skew can be reported:
+ * all installs share one Python runtime, so `/seo setup` for one version
+ * leaves the other needing setup again.
+ */
+function findPlugin(list: PluginInstall[]): { plugin: PluginInstall | null; others: PluginInstall[] } {
+  const rank = (p: PluginInstall) => (p.scope === "local" ? 0 : p.scope === "project" ? 1 : 2);
+  const mine = list
+    .filter((p) => p.id === PLUGIN_ID && (!p.projectPath || resolve(p.projectPath) === resolve(ROOT)))
+    .sort((a, b) => Number(b.enabled) - Number(a.enabled) || rank(a) - rank(b));
+  return { plugin: mine[0] ?? null, others: mine.slice(1) };
+}
 
 function run(cmd: string, args: string[]): { ok: boolean; missing?: boolean; out: string } {
   try {
@@ -265,11 +289,12 @@ export function doctor(): DoctorResult {
     ? { ok: true, detail: claude.out.split("\n")[0] }
     : { ok: false, detail: "`claude` not on PATH", fix: "Install Claude Code: https://claude.com/claude-code" });
 
-  let plugin: { id: string; enabled: boolean; version: string; installPath: string } | null = null;
+  let plugin: PluginInstall | null = null;
+  let others: PluginInstall[] = [];
   if (claude.ok) {
     const list = run("claude", ["plugin", "list", "--json"]);
     try {
-      plugin = JSON.parse(list.out).find((p: { id: string }) => p.id === PLUGIN_ID) ?? null;
+      ({ plugin, others } = findPlugin(JSON.parse(list.out)));
     } catch {
       plugin = null;
     }
@@ -289,12 +314,22 @@ export function doctor(): DoctorResult {
   let google: GoogleServices | undefined;
   if (plugin?.enabled) {
     const drift = TESTED_VERSION && plugin.version !== TESTED_VERSION;
+    const skew = others.filter((p) => p.enabled && p.version !== plugin!.version);
+    const newest = [plugin, ...skew].reduce((a, b) => (cmpVersion(a.version, b.version) >= 0 ? a : b)).version;
+    const behind = [plugin, ...skew].filter((p) => p.version !== newest);
+    const scope = plugin.scope ? ` (${plugin.scope})` : "";
     add("claude-seo plugin", true, {
       ok: true,
-      warn: Boolean(drift),
-      detail: drift
-        ? `${plugin.version} — reports are tested against ${TESTED_VERSION}; check a reference audit before sending this one to a client`
-        : plugin.version,
+      warn: Boolean(drift) || skew.length > 0,
+      detail: [
+        drift
+          ? `${plugin.version}${scope} — reports are tested against ${TESTED_VERSION}; check a reference audit before sending this one to a client`
+          : `${plugin.version}${scope}`,
+        ...skew.map((p) => `also enabled: ${p.version} (${p.scope ?? "unknown scope"}), sharing one runtime`),
+      ].join("; "),
+      fix: skew.length
+        ? behind.map((p) => `claude plugin update ${PLUGIN_ID}${p.scope ? ` --scope ${p.scope}` : ""}`).join("\n      ")
+        : undefined,
     });
     const runtime = checkRuntime(plugin.installPath);
     add("claude-seo runtime", true, runtime);

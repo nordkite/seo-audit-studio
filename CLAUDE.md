@@ -35,13 +35,13 @@ commands. It holds two lists:
   `seo-page` is a single checklist with no subagents. A subagent that did not
   run goes in `notCovered`, never silently.
 - `supplements`: this repo's additions for claude-seo's gaps (hreflang, images,
-  social tags, keyless Lighthouse), each with the `gap` it fills and when to
+  social tags, keyless Lighthouse, server stack CVE exposure), each with the `gap` it fills and when to
   remove it. A supplement is a claude-seo skill or a deterministic script, never
   a skill under `.claude/skills/`. Add new gap-fillers here, not as prose in a
   command file.
 
 `scripts/check-social.ts` is the one supplement this repo implements itself:
-claude-seo 2.4.2 never checks `twitter:image`, and without it X shows shared
+claude-seo (through 2.5.0) never checks `twitter:image`, and without it X shows shared
 links with no picture even when `og:image` is set.
 
 `npm run doctor` warns when `coverage.json`'s `claudeSeoVersion` differs from
