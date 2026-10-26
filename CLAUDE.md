@@ -41,8 +41,9 @@ commands. It holds two lists:
   command file.
 
 `scripts/check-social.ts` is the one supplement this repo implements itself:
-claude-seo (through 2.5.0) never checks `twitter:image`, and without it X shows shared
-links with no picture even when `og:image` is set.
+claude-seo's full audit (through 2.5.0) has no social-tag check. It requires
+Open Graph and `twitter:card` only, because X falls back to `og:*` for the
+title, description and image, so a missing `twitter:image` is not an issue.
 
 `npm run doctor` warns when `coverage.json`'s `claudeSeoVersion` differs from
 the installed claude-seo. When it does, re-check each supplement's `gap` and

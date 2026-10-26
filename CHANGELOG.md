@@ -27,6 +27,15 @@
   DataForSEO. Its fallback, WebSearch, always searches from the US. Without
   DataForSEO, a finding keeps the problem seen on the site itself, drops the
   comparison, and competitor rankings are listed under "Not covered".
+- **`social-tags` no longer requires `twitter:title`, `twitter:description`
+  or `twitter:image`.** X falls back to the matching `og:` tags, so their
+  absence is not an issue. `twitter:card` is still required, since nothing
+  replaces it.
+- **`audit/coverage.json` matches claude-seo 2.5.0's audit.** `seo-backlinks`
+  is expected on every site audit, since claude-seo always includes its keyless
+  Common Crawl metrics. `seo-dataforseo` is expected when DataForSEO is
+  connected, and `seo-matomo` when Matomo is configured. claude-seo 2.5.0 names
+  `seo-matomo` without shipping it, so it lands in "Not covered".
 - **The Method section is written for the site owner**: where the data came
   from, which period it covers and what the report leaves out, without SEO
   jargon. The claude-seo version and sample sizes move to one closing line.

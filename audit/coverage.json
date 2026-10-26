@@ -14,13 +14,15 @@
         "seo-visual",
         "seo-geo",
         "seo-agentic",
-        "seo-sxo"
+        "seo-sxo",
+        "seo-backlinks"
       ],
       "when": {
         "seo-local": "local business detected (brick-and-mortar, service-area or hybrid)",
         "seo-ecommerce": "online store detected",
         "seo-google": "Google API credentials configured",
-        "seo-backlinks": "Moz or Bing backlink credentials configured",
+        "seo-dataforseo": "DataForSEO MCP available",
+        "seo-matomo": "Matomo credentials configured. claude-seo 2.5.0 names this agent but ships no agents/seo-matomo.md, so expect it to fail and list it in notCovered",
         "seo-cluster": "blog, pillar pages or topic clusters detected",
         "seo-maps": "local business detected and DataForSEO MCP available",
         "seo-drift": "a drift baseline exists for the URL"
@@ -42,6 +44,7 @@
         "seo-local": "local business detected (brick-and-mortar, service-area or hybrid)",
         "seo-ecommerce": "the page is a product, category or cart page",
         "seo-google": "Google API credentials configured",
+        "seo-dataforseo": "DataForSEO MCP available",
         "seo-drift": "a drift baseline exists for the URL"
       }
     }
@@ -76,8 +79,8 @@
         "site": "node scripts/check-social.ts <url> --json",
         "page": "node scripts/check-social.ts <page-url> --page --json"
       },
-      "gap": "claude-seo never checks twitter:image. Without it X shows shared links with no picture even when og:image is set.",
-      "removeWhen": "claude-seo checks twitter:image."
+      "gap": "seo-audit has no social-tag check, and seo-page lists the tags on one page without checking that the share image loads. Requires Open Graph and twitter:card only: X falls back to og:* for title, description and image.",
+      "removeWhen": "seo-audit checks Open Graph tags and share images on every page."
     },
     {
       "id": "lighthouse",
@@ -88,8 +91,8 @@
         "site": "the homepage",
         "page": "the audited URL"
       },
-      "gap": "seo-audit only measures Core Web Vitals through seo-google when credentials exist, and seo-page never measures them. PageSpeed Insights works without a key, so every report can carry lab numbers.",
-      "removeWhen": "both claude-seo audits run PageSpeed Insights without credentials."
+      "gap": "seo-performance runs PageSpeed Insights at its own discretion and reports prose, and seo-page never measures it. The report's Core Web Vitals panel needs the same keyless JSON from every audit.",
+      "removeWhen": "claude-seo's audits always run pagespeed_check.py and keep its JSON output."
     },
     {
       "id": "stack-cve",

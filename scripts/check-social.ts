@@ -8,11 +8,10 @@
  *   npm run check-social -- https://example.com/page --page --json
  *                                       that URL only, used by /new-page-audit
  *
- * Why this exists: claude-seo 2.4.2 does not check twitter:image (its seo-page
- * checklist stops at card/title/description, and the full audit has no social
- * check at all). In practice X shows a link with no picture when twitter:image
- * is missing, even if og:image is set. A deterministic check here means the gap
- * cannot slip through an audit again. Drop it once claude-seo covers it.
+ * Why this exists: claude-seo's full audit (through 2.5.0) has no social-tag
+ * check at all, and seo-page lists the tags on one page without checking that
+ * the share image works. A deterministic check here covers every sitemap URL.
+ * Drop it once claude-seo's audit checks social tags and share images.
  *
  * Pages are fetched as Twitterbot, so the result is what X's crawler sees.
  * Node built-ins only, like doctor.ts.
@@ -52,17 +51,10 @@ const TIMEOUT_MS = 30_000;
 const X_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 const X_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 
-// Required on every page. twitter:image is the one claude-seo misses.
-const REQUIRED = [
-  "og:title",
-  "og:description",
-  "og:image",
-  "og:url",
-  "twitter:card",
-  "twitter:title",
-  "twitter:description",
-  "twitter:image",
-];
+// Required on every page. X falls back to og:title, og:description and
+// og:image when the twitter: ones are missing, but has no fallback for
+// twitter:card: without it a link gets the small summary card.
+const REQUIRED = ["og:title", "og:description", "og:image", "og:url", "twitter:card"];
 
 // Tags that must appear at most once. og:image and og:locale:alternate may
 // legitimately repeat (Open Graph arrays), so they are not listed.
