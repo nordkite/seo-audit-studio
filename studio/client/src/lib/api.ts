@@ -11,6 +11,7 @@ import type {
   Provider,
   Report,
   ReportSummary,
+  SiteLanguages,
   TranslateEvent,
   TranslateProgress,
   TranslateResult,
@@ -120,7 +121,13 @@ export const api = {
 
   audits: () => fetch("/api/audits").then((r) => unwrap<{ jobs: AuditJob[] }>(r)),
 
+  /** The site's language versions, so a site audit can cover only some of them. */
+  siteLanguages: (url: string) =>
+    fetch(`/api/audits/languages?url=${encodeURIComponent(url)}`).then((r) => unwrap<SiteLanguages>(r)),
+
   startAudit: (body: AuditRequest) => post("/api/audits", body).then((r) => unwrap<AuditJob>(r)),
+
+  resumeAudit: (id: string) => post(`/api/audits/${id}/resume`, {}).then((r) => unwrap<AuditJob>(r)),
 
   cancelAudit: (id: string) =>
     fetch(`/api/audits/${id}`, { method: "DELETE" }).then((r) => unwrap<AuditJob>(r)),

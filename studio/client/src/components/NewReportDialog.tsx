@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { guessScope, hostOf } from "@/lib/audits";
 import { cn } from "@/lib/utils";
-import type { AuditJob, AuditScope, Preflight } from "@/lib/types";
+import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditScope, type Preflight, type SiteLanguages } from "@/lib/types";
 
 export interface NewReportPrefill {
   url?: string;
@@ -62,6 +63,15 @@ function AuditForm({
   const [scopeTouched, setScopeTouched] = useState(false);
   const [preflight, setPreflight] = useState<Preflight | null>(null);
   const [busy, setBusy] = useState(false);
+  const [run, setRun] = useState<RunChoice>(loadRunChoice);
+  useEffect(() => saveRunChoice(run), [run]);
+  const langs = useSiteLanguages(scope === "site" ? url : "");
+  // Version ids (first hreflang code) left out of the audit. Empty: all of them.
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  useEffect(() => setSkipped(new Set()), [langs.site]);
+  const versions = langs.site?.unsupported ? [] : (langs.site?.versions ?? []);
+  const choosable = versions.length > 1;
+  const chosen = versions.map((v) => v.langs[0]).filter((id) => !skipped.has(id));
 
   useEffect(() => {
     api
@@ -78,7 +88,8 @@ function AuditForm({
   const start = async () => {
     setBusy(true);
     try {
-      onStarted(await api.startAudit({ url, scope, clientName }));
+      const languages = scope === "site" && choosable && skipped.size ? chosen : undefined;
+      onStarted(await api.startAudit({ url, scope, clientName, languages, ...runRequest(run) }));
     } catch (e) {
       toast.error((e as Error).message, { duration: 10000 });
     } finally {
@@ -128,6 +139,23 @@ function AuditForm({
           ))}
         </div>
       </div>
+
+      {scope === "site" && url.trim() && (
+        <LanguagePicker
+          state={langs}
+          skipped={skipped}
+          onToggle={(id) =>
+            setSkipped((s) => {
+              const next = new Set(s);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+        />
+      )}
+
+      <RunPicker value={run} onChange={setRun} />
 
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Client name (optional)</Label>
@@ -179,13 +207,223 @@ function AuditForm({
         </Button>
         <Button
           onClick={start}
-          disabled={busy || !url.trim() || !preflight?.ok || auditRunning}
+          disabled={
+            busy ||
+            !url.trim() ||
+            !preflight?.ok ||
+            auditRunning ||
+            (scope === "site" && (langs.loading || (choosable && !chosen.length)))
+          }
           title={auditRunning ? "Another audit is running" : undefined}
         >
           {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Play className="size-3.5" />}
           Start audit
         </Button>
       </DialogFooter>
+    </div>
+  );
+}
+
+interface LanguagesState {
+  site: SiteLanguages | null;
+  loading: boolean;
+  error: string | null;
+}
+
+/** The site's language versions, read once the URL has stopped changing. */
+function useSiteLanguages(url: string): LanguagesState {
+  const [state, setState] = useState<LanguagesState>({ site: null, loading: false, error: null });
+  useEffect(() => {
+    const host = hostOf(/^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`);
+    if (!url.trim() || !host.includes(".")) {
+      setState({ site: null, loading: false, error: null });
+      return;
+    }
+    let live = true;
+    setState({ site: null, loading: true, error: null });
+    const t = setTimeout(() => {
+      api
+        .siteLanguages(url.trim())
+        .then((site) => live && setState({ site, loading: false, error: null }))
+        .catch((e) => live && setState({ site: null, loading: false, error: (e as Error).message }));
+    }, 600);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [url]);
+  return state;
+}
+
+const languageName = (code: string) => {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+};
+
+function LanguagePicker({
+  state,
+  skipped,
+  onToggle,
+}: {
+  state: LanguagesState;
+  skipped: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  const { site, loading, error } = state;
+  const note = (text: ReactNode) => <p className="text-xs text-muted-foreground">{text}</p>;
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs text-muted-foreground">Language versions</Label>
+      {loading ? (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" /> Reading hreflang…
+        </div>
+      ) : error ? (
+        note(<>Could not read the language versions ({error}). The audit will cover the whole site.</>)
+      ) : !site ? null : site.unsupported ? (
+        note(<>{site.unsupported} The audit will cover all of them.</>)
+      ) : site.versions.length <= 1 ? (
+        note(
+          site.versions.length
+            ? `One language version (${languageName(site.versions[0].langs[0])}), so nothing to choose.`
+            : "No language declared, so the audit covers the whole site."
+        )
+      ) : (
+        <>
+          <div className="max-h-48 divide-y overflow-auto border">
+            {site.versions.map((v) => {
+              const id = v.langs[0];
+              return (
+                <label key={v.root} className="flex cursor-pointer items-center gap-2.5 px-2.5 py-1.5 hover:bg-muted/50">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-foreground"
+                    checked={!skipped.has(id)}
+                    onChange={() => onToggle(id)}
+                  />
+                  <span className="w-40 shrink-0 truncate text-sm" title={v.langs.join(", ")}>
+                    {languageName(id)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground" title={v.root}>
+                    {v.root.replace(/^https?:\/\//, "")}
+                  </span>
+                  {v.isRoot && (
+                    <span
+                      className="shrink-0 text-[10px] text-muted-foreground"
+                      title={v.inferred ? "Not in hreflang; read from the homepage's <html lang>" : undefined}
+                    >
+                      root{v.inferred ? " · html lang" : ""}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
+          </div>
+          {note(
+            <>
+              Root language: {site.rootLang ? languageName(site.rootLang) : "unknown"}. Unticked versions are
+              left out and listed in the report as not covered.
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** "default" stands for the user's own Claude Code setting; it is never sent. */
+interface RunChoice {
+  model: string;
+  effort: string;
+  subagents: "plugin" | "sonnet";
+}
+
+const RUN_KEY = "studio.auditRun";
+const RUN_DEFAULT: RunChoice = { model: "default", effort: "default", subagents: "plugin" };
+
+/** The last choice, per browser: a convenience, so the dialog works without it. */
+function loadRunChoice(): RunChoice {
+  try {
+    return { ...RUN_DEFAULT, ...JSON.parse(localStorage.getItem(RUN_KEY) ?? "{}") };
+  } catch {
+    return RUN_DEFAULT;
+  }
+}
+
+function saveRunChoice(run: RunChoice) {
+  try {
+    localStorage.setItem(RUN_KEY, JSON.stringify(run));
+  } catch {
+    /* private window: the choice just is not remembered */
+  }
+}
+
+function runRequest(run: RunChoice): Pick<AuditRequest, "model" | "effort" | "subagents"> {
+  return {
+    ...((AUDIT_MODELS as readonly string[]).includes(run.model) ? { model: run.model as AuditRequest["model"] } : {}),
+    ...((EFFORTS as readonly string[]).includes(run.effort) ? { effort: run.effort as AuditRequest["effort"] } : {}),
+    ...(run.subagents === "sonnet" ? { subagents: "sonnet" as const } : {}),
+  };
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function RunPicker({ value, onChange }: { value: RunChoice; onChange: (next: RunChoice) => void }) {
+  const pickers = [
+    {
+      key: "model",
+      label: "Model",
+      options: [["default", "Your setting"], ...AUDIT_MODELS.map((m) => [m, cap(m)])],
+    },
+    {
+      key: "effort",
+      label: "Effort",
+      options: [["default", "Your setting"], ...EFFORTS.map((e) => [e, cap(e)])],
+    },
+    {
+      key: "subagents",
+      label: "Subagents",
+      options: [
+        ["plugin", "As claude-seo sets"],
+        ["sonnet", "All on Sonnet"],
+      ],
+    },
+  ] as const;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-3 gap-2">
+        {pickers.map((p) => (
+          <div key={p.key} className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">{p.label}</Label>
+            <Select
+              value={value[p.key]}
+              onValueChange={(v) => onChange({ ...value, [p.key]: v })}
+              items={p.options.map(([v, label]) => ({ value: v, label }))}
+            >
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {p.options.map(([v, label]) => (
+                  <SelectItem key={v} value={v} className="text-xs">
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        &ldquo;Your setting&rdquo; is your Claude Code default. Most of an audit&rsquo;s usage is the subagents;
+        claude-seo runs three of them on Opus. All on Sonnet costs less, but those three judge content quality,
+        search intent and AI-search visibility, so compare one report before switching for good.
+      </p>
     </div>
   );
 }

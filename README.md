@@ -170,7 +170,12 @@ Audit, translate, render. Each step is one slash command:
 | `/translate-report <slug> all` | Fills in `et` and `ru`, cached into the same file |
 | `/seo-report <slug> --all` | Renders the PDFs |
 
-Both audit commands take an optional client name after the URL. A page audit
+Both audit commands take an optional client name after the URL. `/new-audit`
+also takes `--languages et,ru` right after the URL to audit only those language
+versions of a multilingual site. The versions come from the homepage's
+hreflang, the homepage's own language is detected rather than assumed, and the
+report names the versions it covers and lists the rest as not covered. The
+Studio offers the same choice as checkboxes. A page audit
 runs claude-seo's `seo-page` checklist plus the page-scope subagents listed in
 [audit/coverage.json](audit/coverage.json), and does not crawl the rest of the
 site. Its score is a single-page score, not comparable to a site audit's Health
@@ -283,6 +288,7 @@ brand.example/            white-label template, copied to brand/ (git-ignored) b
 scripts/doctor.ts         environment check, also the audit commands' preflight
 scripts/setup.ts          npm install + claude-seo plugin install + doctor
 scripts/check-social.ts   Open Graph + X/Twitter Card check, fills a claude-seo gap
+scripts/site-languages.ts language versions from hreflang, for --languages
 audit/coverage.json       subagents and supplements each audit scope must run
 .claude/settings.json     declares the claude-seo plugin for this project
 .claude/commands/         /new-audit, /new-page-audit, /translate-report, /seo-report

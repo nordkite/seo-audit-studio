@@ -55,6 +55,7 @@ export function listReports(): ReportSummary[] {
           findings: report.findings?.length ?? 0,
           langs: availableLangs(report),
           scope: report.meta?.scope ?? "site",
+          siteLanguages: report.meta?.languages,
         };
       } catch {
         return {

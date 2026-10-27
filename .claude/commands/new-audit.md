@@ -1,6 +1,6 @@
 ---
 description: Run a full SEO audit on a site with the claude-seo plugin and write it out as structured report JSON ready for PDF generation.
-argument-hint: <url> [client name]
+argument-hint: <url> [--languages et,ru] [client name]
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Skill, Agent
 ---
 
@@ -8,9 +8,11 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Skill, Agent
 
 Audit a site end to end and emit `reports/<slug>.json`. Arguments: `$ARGUMENTS`
 
-The first argument is the URL. Everything after it, verbatim, is
-`meta.clientName`: do not split it, shorten it or read part of it as a page
-name. With nothing after the URL, derive the name from the site.
+The first argument is the URL. If the next one is `--languages` followed by
+comma-separated hreflang codes, the audit covers only those language versions
+of the site (see [Language scope](#language-scope)). Everything after that,
+verbatim, is `meta.clientName`: do not split it, shorten it or read part of it
+as a page name. With no name given, derive it from the site.
 
 The audit methodology comes from the **claude-seo** plugin, not from this repo.
 This repo owns the report: the schema, the translation, the PDF. Keeping the two
@@ -37,6 +39,8 @@ apart is what lets claude-seo update without touching anything here.
    - Read **[audit/coverage.json](../../audit/coverage.json)**. It lists what
      this audit must cover: the subagents claude-seo should run, and this
      repo's supplements for claude-seo's gaps. Steps 1 and 2 follow it.
+   - With `--languages`, set up the [Language scope](#language-scope) now,
+     before anything is crawled.
 
 1. **Run the claude-seo audit.** Use the claude-seo plugin's audit (the `/seo audit
    <url>` flow) for the methodology and the parallel subagents. Two overrides:
@@ -128,15 +132,73 @@ apart is what lets claude-seo update without touching anything here.
      `canonical`) are fine. End with one line giving the claude-seo version
      from the preflight and the sample sizes.
 
-4. **Write `reports/<slug>.json`.** Findings in English only.
+4. **Write `reports/<slug>.json`.** With `--languages`, the slug is the site
+   slug, two hyphens, then the codes as given joined by hyphens
+   (`example-ee--et-ru`), so it never overwrites the whole-site report.
+   Findings in English only.
    `/translate-report` fills in `et` and `ru` afterwards. Run
    `node src/generate.ts <slug>`: it validates the file and renders the English
    PDF. Fix any validation error it reports.
 
 5. **Report back** the score, finding counts by severity, `meta.dataSources`,
+   the language versions audited and left out (with `--languages`),
    whether `metrics` came from field or lab data, any subagent or supplement
    that did not run, and the next steps: `/translate-report <slug> all`,
    then `/seo-report <slug> --all`.
+
+## Language scope
+
+Without `--languages`, audit every language version of the site. With it
+(`--languages et,ru`), audit only those versions. Everything below applies only
+then.
+
+- **Find the versions.** Run
+  `node scripts/site-languages.ts <url> --langs <codes> --json`. It returns
+  `versions` (each a `root` URL and its hreflang `langs`), `rootLang`,
+  `selected`, `excluded`, and `urls`: the sitemap URLs inside the selected
+  versions. If it returns `error`, stop and report it. Do not fall back to a
+  whole-site audit: the person asked for less, and a report covering more
+  languages than requested is the wrong report.
+- **Which version a URL is in.** The one with the longest `root` that contains
+  it. The homepage's language is `rootLang`, never assumed: with Estonian at
+  `/` and Russian at `/ru/`, `/ru/kontakt` is Russian and `/kontakt` Estonian;
+  on another site the root may be English or Russian.
+- **Scope the claude-seo audit.** Before it starts, state the scope: the
+  selected roots, the excluded roots, the rule above, and that `urls` is the
+  page set. Put the same scope in every subagent's prompt. Crawl from the
+  selected roots and never follow links into an excluded version. If `urls`
+  holds only the roots (the sitemap could not be read), crawl from the roots
+  under the same rule.
+- **Site-wide checks stay site-wide:** robots.txt, sitemap discovery, security
+  headers, backlinks, the server stack. Report sitemap problems only for URLs
+  in the selected versions.
+- **hreflang.** Check the annotations on the selected versions' pages. Fetch an
+  excluded version only to confirm a return link, and report nothing else
+  about it.
+- **Supplements.** Run `social-tags` with `--langs <codes>`. `images` picks its
+  templates from `urls`. `lighthouse` targets the root of the first selected
+  version instead of the homepage. `stack-cve` stays on the homepage.
+- **Search Console.** claude-seo's `gsc_query.py` cannot filter by page. Write
+  every page's rows and every query+page row to a temporary directory
+  (`mktemp -d`):
+  `"$CLAUDE_SEO" run gsc_query.py query --property <property> --dimensions page --limit 100000 --json > <dir>/pages.json`,
+  and the same with `--dimensions query,page` into `<dir>/queries.json`. Then
+  run `node scripts/site-languages.ts <url> --langs <codes> --gsc-pages <dir>/pages.json --gsc-queries <dir>/queries.json --json`.
+  Its `searchConsole` holds `clicks`, `impressions`, `ctr` (a fraction),
+  `position` and `topQueries` for the selected versions: use those for
+  `metrics.searchConsole`, with the start and end dates of the query. Say in
+  `method` that the numbers are summed over those versions' pages.
+- **Core Web Vitals.** CrUX origin data covers every language on that origin.
+  Use URL-level data for the first selected root, or the lab run, and set
+  `coreWebVitals.url` to that root.
+- **Findings** cover the selected versions only. Each evidence URL must be in
+  one of them, except an hreflang return-link finding that names the other
+  side. The Studio lists any other evidence URL outside the scope.
+- **`meta.pagesAnalyzed`** counts pages in the selected versions only.
+  **`meta.languages`** is the codes as given; the cover names them.
+- **`notCovered`** gets one entry naming the excluded versions by language and
+  root, saying they were left out by choice, not because a check failed.
+  `method` says in one sentence which versions were audited.
 
 ## Schema
 
@@ -147,6 +209,7 @@ apart is what lets claude-seo update without touching anything here.
     "site": "example.com",              // shown large on the cover
     "siteUrl": "https://example.com/",
     // "scope": "page", "pageUrl": "…"  — only for /new-page-audit; omit here
+    // "languages": ["et", "ru"]      — only with --languages; see Language scope
     "clientName": "Example Ltd",
     "auditedAt": "2026-07-31",     // ISO date
     "pagesAnalyzed": 17,
@@ -243,6 +306,8 @@ apart is what lets claude-seo update without touching anything here.
   language, so nothing in `metrics` is ever translated. Report what the API
   returned; do not round before writing it. A metric that is measured badly also
   belongs in `findings` (a poor LCP is a finding), with the number as evidence.
+- **`meta.languages`**: only with `--languages`. Leave it out of a
+  whole-site audit, even on a multilingual site.
 - **`meta.dataSources`**: one entry for each of `searchConsole`, `analytics`,
   `crux` and `pagespeed`. The report prints them as a table under Method, so a
   client can tell "no Search Console numbers because there was no access" from

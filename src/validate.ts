@@ -36,6 +36,14 @@ export function validate(report: Report, path: string): void {
       problems.push(`\`meta.scope\` must be one of ${SCOPES.join(", ")}`);
     }
     if (scope === "page" && !pageUrl) problems.push("`meta.pageUrl` is required when `meta.scope` is \"page\"");
+    const { languages } = report.meta;
+    if (languages !== undefined) {
+      if (!Array.isArray(languages) || !languages.length || !languages.every((l) => typeof l === "string" && l.trim())) {
+        problems.push("`meta.languages` must be a non-empty array of language codes");
+      } else if (scope === "page") {
+        problems.push("`meta.languages` is for site audits; a page audit covers one URL");
+      }
+    }
     const { dataSources } = report.meta;
     if (dataSources !== undefined) {
       for (const [k, v] of Object.entries(dataSources)) {

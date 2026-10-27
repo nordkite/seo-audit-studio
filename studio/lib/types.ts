@@ -98,6 +98,8 @@ export interface ReportSummary {
   findings: number;
   langs: Lang[];
   scope: AuditScope;
+  /** `meta.languages`: the site's language versions covered, when not all. */
+  siteLanguages?: string[];
   broken?: boolean;
 }
 
@@ -131,10 +133,47 @@ export interface Preflight {
   checks: DoctorCheck[];
 }
 
+/** Models an audit can run on. Left out, the user's own Claude Code setting. */
+export const AUDIT_MODELS = ["opus", "sonnet"] as const;
+export type AuditModel = (typeof AUDIT_MODELS)[number];
+
 export interface AuditRequest {
   url: string;
   scope: AuditScope;
   clientName?: string;
+  /** The main agent's model. Left out: the user's Claude Code setting. */
+  model?: AuditModel;
+  /** Left out: the user's Claude Code setting. */
+  effort?: Effort;
+  /**
+   * `sonnet` runs every subagent on Sonnet, overriding the models claude-seo's
+   * agent files name. Left out: as claude-seo defines them.
+   */
+  subagents?: "sonnet";
+  /**
+   * Site audits only: the language versions to cover, by their first hreflang
+   * code. Left out to cover every version.
+   */
+  languages?: string[];
+}
+
+/** One language version, from scripts/site-languages.ts. */
+export interface LanguageVersion {
+  langs: string[];
+  root: string;
+  isRoot: boolean;
+  inferred?: boolean;
+}
+
+/** GET /api/audits/languages?url=…: the site's language versions. */
+export interface SiteLanguages {
+  url: string;
+  home: string;
+  rootLang: string | null;
+  source: "hreflang" | "html-lang" | "none";
+  versions: LanguageVersion[];
+  /** Versions cannot be told apart by URL, so only a whole-site audit is possible. */
+  unsupported?: string;
 }
 
 export type AuditStatus = "running" | "done" | "failed" | "cancelled";
@@ -167,5 +206,11 @@ export interface AuditJob extends AuditRequest {
   message?: string;
   /** Raw stream-json log, relative to the repo root. */
   log: string;
+  /** The Claude session, so a stopped run can be resumed. */
+  sessionId?: string;
+  /** The job this one resumed. */
+  resumedFrom?: string;
+  /** For a resumed job, when the original run started. */
+  since?: number;
   costUsd?: number;
 }

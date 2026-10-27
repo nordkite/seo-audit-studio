@@ -77,6 +77,11 @@ export interface Meta {
   scope?: AuditScope;
   /** The one URL a page-scope report covers. */
   pageUrl?: string;
+  /**
+   * The site's language versions the audit covered, as hreflang codes. Only
+   * set when it covered some of them, not all; the cover lists them.
+   */
+  languages?: string[];
   clientName: string;
   auditedAt: string;
   pagesAnalyzed: number;

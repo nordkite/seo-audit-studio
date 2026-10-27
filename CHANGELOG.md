@@ -14,6 +14,31 @@
   than one enabled install has a different version. They share one Python
   runtime, so setting up one can leave the other broken. The warning prints the
   update command for the older one.
+- **Audit only some of a site's language versions.** `/new-audit <url>
+  --languages et,ru` covers just those versions, and the Studio's New report
+  dialog offers them as checkboxes, read from the homepage's hreflang. The
+  homepage's own language is detected, never assumed, and a URL belongs to the
+  version with the longest root that contains it, so a language served at `/`
+  works whatever it is. Crawl, supplements, Search Console totals and Core Web
+  Vitals stay inside the chosen versions; robots.txt, security headers and
+  backlinks stay site-wide. The cover names the versions, the rest are listed
+  under "Not covered", and the report is saved as `<site>--et-ru.json` so it
+  never overwrites the whole-site one. Afterwards the Studio lists any finding
+  whose evidence points at a version that was not chosen.
+- **Model, effort and subagents for Studio audits.** The New report dialog can
+  run an audit on Opus or Sonnet, at a chosen effort, and put every subagent on
+  Sonnet. Left alone, an audit uses your Claude Code settings as before.
+- **Resume a stopped audit.** A failed or cancelled audit continues its own
+  Claude session from where it stopped, so a run cut off by a usage limit does
+  not pay for its finished subagents again.
+
+### Fixed
+
+- **`check-social.ts` output was cut off at 64 KB on macOS** when piped, so a
+  large site's results reached the audit as broken JSON.
+- **`check-social.ts` reads sitemaps with an ordinary user agent.** Some sites
+  refuse their sitemap to Twitterbot, which left only the homepage checked.
+  Pages are still fetched as Twitterbot.
 
 ### Changed
 

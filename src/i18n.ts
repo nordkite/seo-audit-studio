@@ -61,3 +61,17 @@ export function formatDate(iso: string, locale: string): string {
 export function formatNumber(n: number, locale: string): string {
   return new Intl.NumberFormat(locale).format(n);
 }
+
+/** hreflang codes as language names in the report's language: "Estonian and Russian". */
+export function formatLanguages(codes: string[], locale: string): string {
+  const names = new Intl.DisplayNames(locale, { type: "language" });
+  const named = codes.map((c) => {
+    try {
+      return names.of(c) ?? c;
+    } catch {
+      return c; // not a valid BCP 47 tag
+    }
+  });
+  const list = new Intl.ListFormat(locale, { type: "conjunction" }).format(named);
+  return list.charAt(0).toLocaleUpperCase(locale) + list.slice(1);
+}

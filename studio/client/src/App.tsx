@@ -455,9 +455,27 @@ export default function App() {
           }
           audits.refresh();
         }}
+        onResume={async (job) => {
+          try {
+            showAudit(await api.resumeAudit(job.id));
+          } catch (e) {
+            toast.error((e as Error).message, { duration: 10000 });
+          }
+          audits.refresh();
+        }}
         onRetry={async (job) => {
           try {
-            showAudit(await api.startAudit({ url: job.url, scope: job.scope, clientName: job.clientName }));
+            showAudit(
+              await api.startAudit({
+                url: job.url,
+                scope: job.scope,
+                clientName: job.clientName,
+                languages: job.languages,
+                model: job.model,
+                effort: job.effort,
+                subagents: job.subagents,
+              })
+            );
           } catch (e) {
             toast.error((e as Error).message, { duration: 10000 });
           }

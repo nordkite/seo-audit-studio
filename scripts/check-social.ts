@@ -7,6 +7,8 @@
  *   npm run check-social -- https://example.com --json     used by /new-audit
  *   npm run check-social -- https://example.com/page --page --json
  *                                       that URL only, used by /new-page-audit
+ *   npm run check-social -- https://example.com --langs et,ru --json
+ *                    only those language versions (see site-languages.ts)
  *
  * Why this exists: claude-seo's full audit (through 2.5.0) has no social-tag
  * check at all, and seo-page lists the tags on one page without checking that
@@ -16,6 +18,8 @@
  * Pages are fetched as Twitterbot, so the result is what X's crawler sees.
  * Node built-ins only, like doctor.ts.
  */
+
+import { detectLanguages, pick, sitemapUrls, urlsIn } from "./site-languages.ts";
 
 interface Issue {
   id: string;
@@ -37,13 +41,14 @@ export interface SocialResult {
   site: string;
   userAgent: string;
   pagesChecked: number;
+  /** The language versions checked, when limited with --langs. */
+  languages?: string[];
   urls: string[];
   issues: Issue[];
   images: ImageCheck[];
 }
 
 const UA = "Twitterbot/1.0";
-const MAX_PAGES = 500;
 const CONCURRENCY = 5;
 const TIMEOUT_MS = 30_000;
 
@@ -105,37 +110,6 @@ function metaTags(html: string): [string, string][] {
   return tags;
 }
 
-/** Sitemap URLs: robots.txt Sitemap: lines first, then the usual locations. */
-async function sitemapUrls(origin: string): Promise<string[]> {
-  const seeds: string[] = [];
-  try {
-    const robots = await (await get(`${origin}/robots.txt`)).text();
-    for (const m of robots.matchAll(/^\s*sitemap:\s*(\S+)/gim)) seeds.push(m[1]);
-  } catch {}
-  if (!seeds.length) seeds.push(`${origin}/sitemap_index.xml`, `${origin}/sitemap.xml`);
-
-  const pages = new Set<string>();
-  const seen = new Set<string>();
-  const queue = [...seeds];
-  while (queue.length && pages.size < MAX_PAGES) {
-    const sm = queue.shift()!;
-    if (seen.has(sm)) continue;
-    seen.add(sm);
-    let xml;
-    try {
-      const res = await get(sm);
-      if (!res.ok) continue;
-      xml = await res.text();
-    } catch {
-      continue;
-    }
-    const locs = [...xml.matchAll(/<loc>\s*([^<\s]+)\s*<\/loc>/gi)].map((m) => decode(m[1]));
-    if (/<sitemapindex/i.test(xml)) queue.push(...locs);
-    else for (const l of locs) if (pages.size < MAX_PAGES) pages.add(l);
-  }
-  return [...pages];
-}
-
 async function pool<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let i = 0;
@@ -176,10 +150,19 @@ async function checkImage(url: string): Promise<ImageCheck> {
   }
 }
 
-/** `pageOnly` checks just `siteUrl` instead of every sitemap URL. */
-export async function checkSocial(siteUrl: string, pageOnly = false): Promise<SocialResult> {
+/**
+ * `pageOnly` checks just `siteUrl` instead of every sitemap URL. `langs`
+ * keeps the sitemap URLs to those language versions.
+ */
+export async function checkSocial(siteUrl: string, pageOnly = false, langs?: string[]): Promise<SocialResult> {
   const origin = new URL(siteUrl).origin;
-  const urls = pageOnly ? [] : await sitemapUrls(origin);
+  // Sitemaps are read with an ordinary user agent: some sites refuse them to
+  // Twitterbot, and only the pages need to be seen the way X sees them.
+  const inLangs = async (l: string[]) => {
+    const site = await detectLanguages(siteUrl);
+    return urlsIn(site, pick(site, l));
+  };
+  const urls = pageOnly ? [] : langs ? await inLangs(langs) : await sitemapUrls(origin);
   if (!urls.length) urls.push(new URL(siteUrl).href);
 
   const pages = await pool(urls, checkPage);
@@ -226,6 +209,7 @@ export async function checkSocial(siteUrl: string, pageOnly = false): Promise<So
     site: origin,
     userAgent: UA,
     pagesChecked: pages.length,
+    ...(langs ? { languages: langs } : {}),
     urls,
     issues: [...issues.values()],
     images,
@@ -236,13 +220,15 @@ async function main() {
   const args = process.argv.slice(2);
   const json = args.includes("--json");
   const pageOnly = args.includes("--page");
-  const site = args.find((a) => !a.startsWith("--"));
+  const i = args.indexOf("--langs");
+  const langs = i >= 0 ? args[i + 1]?.split(",") : undefined;
+  const site = args.find((a, n) => !a.startsWith("--") && (i < 0 || n !== i + 1));
   if (!site) {
-    console.error("usage: npm run check-social -- <url> [--page] [--json]");
+    console.error("usage: npm run check-social -- <url> [--page] [--langs et,ru] [--json]");
     process.exit(2);
   }
 
-  const result = await checkSocial(site, pageOnly);
+  const result = await checkSocial(site, pageOnly, langs);
 
   if (json) {
     console.log(JSON.stringify(result, null, 2));
@@ -254,7 +240,9 @@ async function main() {
       for (const u of issue.urls) console.log(`      ${u}`);
     }
   }
-  process.exit(result.issues.length ? 1 : 0);
+  // Not process.exit(): on macOS a pipe is written asynchronously, and exiting
+  // here cuts the JSON off at 64 KB.
+  process.exitCode = result.issues.length ? 1 : 0;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

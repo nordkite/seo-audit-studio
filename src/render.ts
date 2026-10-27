@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { loadStrings, t, formatDate, formatNumber, type Strings } from "./i18n.ts";
+import { loadStrings, t, formatDate, formatLanguages, formatNumber, type Strings } from "./i18n.ts";
 import { loadBrand, type Brand } from "./brand.ts";
 import {
   autoCards,
@@ -663,6 +663,14 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
              <dt>${esc(s.doc.pagesAnalyzed)}</dt>
              <dd>${esc(formatNumber(m.pagesAnalyzed, locale))}</dd>
            </div>`
+    }
+    ${
+      m.languages?.length && m.scope !== "page"
+        ? `<div class="wide">
+             <dt>${esc(s.doc.languages)}</dt>
+             <dd>${esc(formatLanguages(m.languages, locale))}</dd>
+           </div>`
+        : ""
     }
     ${
       m.stack

@@ -65,7 +65,7 @@
       "when": "always",
       "run": "skill claude-seo:seo-images",
       "target": {
-        "site": "the homepage plus up to 4 distinct page templates (for example a product, category, article and contact page)",
+        "site": "the homepage plus up to 4 distinct page templates (for example a product, category, article and contact page); with --languages, taken from the selected versions",
         "page": "the audited URL"
       },
       "gap": "seo-audit has no image subagent. seo-technical, seo-performance and seo-visual each touch images, but none checks file sizes, formats, alt text and lazy loading together.",
@@ -76,7 +76,7 @@
       "scope": ["site", "page"],
       "when": "always",
       "run": {
-        "site": "node scripts/check-social.ts <url> --json",
+        "site": "node scripts/check-social.ts <url> --json, plus --langs <codes> with --languages",
         "page": "node scripts/check-social.ts <page-url> --page --json"
       },
       "gap": "seo-audit has no social-tag check, and seo-page lists the tags on one page without checking that the share image loads. Requires Open Graph and twitter:card only: X falls back to og:* for title, description and image.",
@@ -88,7 +88,7 @@
       "when": "always, with or without Google API credentials",
       "run": "\"$CLAUDE_SEO\" run pagespeed_check.py <url> --psi-only --json",
       "target": {
-        "site": "the homepage",
+        "site": "the homepage, or with --languages the root of the first selected version",
         "page": "the audited URL"
       },
       "gap": "seo-performance runs PageSpeed Insights at its own discretion and reports prose, and seo-page never measures it. The report's Core Web Vitals panel needs the same keyless JSON from every audit.",

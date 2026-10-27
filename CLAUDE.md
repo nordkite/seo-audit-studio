@@ -80,7 +80,9 @@ them. Run `npm run typecheck` after changing either.
 ## Commands
 
 - `npm run setup` / `npm run doctor`: install and check the environment
-- `/new-audit <url>` — audit a site with claude-seo, write `reports/<slug>.json`
+- `/new-audit <url> [--languages et,ru]` — audit a site with claude-seo, write
+  `reports/<slug>.json`; with `--languages`, only those language versions
+  (`reports/<slug>--et-ru.json`)
 - `/new-page-audit <url>` — audit one page with claude-seo's `seo-page`, write
   `reports/<site-slug>--<page-slug>.json` (`meta.scope: "page"`)
 - `/translate-report <slug> all` — fill `et`/`ru`, cached into the same file
@@ -119,6 +121,7 @@ them. Run `npm run typecheck` after changing either.
 | `studio/lib/types.ts` | Studio API request/response shapes, shared with the client |
 | `audit/coverage.json` | subagents each audit scope must run, and supplements for claude-seo's gaps (see above) |
 | `scripts/check-social.ts` | Open Graph + X/Twitter Card check on every sitemap URL. Fills a claude-seo gap (see above) |
+| `scripts/site-languages.ts` | a site's language versions from hreflang, the sitemap URLs in a chosen subset, and Search Console totals for it. Used by `/new-audit --languages`, `check-social.ts` and the Studio |
 | `.claude/settings.json` | declares the claude-seo plugin for this project |
 
 `metrics` in the report JSON (Search Console, Core Web Vitals) is numbers only and
@@ -189,6 +192,22 @@ person would type, so the method stays in the command files and claude-seo.
 - One audit at a time. Jobs live in memory; a Studio restart stops and forgets a
   running one. Raw logs go to `.studio-audits/` (git-ignored).
 - Success means a new or changed `reports/*.json` that passes `validate()`.
+- The dialog can set the run's model and effort (`--model`, `--effort`; left
+  out, the user's own Claude Code settings) and put every subagent on Sonnet.
+  claude-seo's agent files name their own models, so that last one needs
+  `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` in the run's environment, not just
+  `CLAUDE_CODE_SUBAGENT_MODEL`.
+- A failed or cancelled run keeps its session id, and Resume continues that
+  session with `--resume` rather than starting over, so a run stopped by a
+  usage limit does not pay for its finished subagents twice. Only jobs still in
+  memory can be resumed.
+- A site audit can cover some of the site's language versions. The dialog
+  reads them from hreflang (`/api/audits/languages`) and passes the ticked ones
+  as `--languages`. A version is identified by its root URL, and a URL belongs
+  to the longest root containing it, so a language served at `/` works whatever
+  that language is. Never assume the root is any particular language.
+  Afterwards the Studio writes `meta.languages` and lists findings whose
+  evidence points outside the chosen versions.
 - `keep-awake.ts` blocks idle sleep for the run's PID with `caffeinate`,
   `SetThreadExecutionState` or `systemd-inhibit`. None of them stop lid-close
   sleep. When it fails, the UI warns instead.

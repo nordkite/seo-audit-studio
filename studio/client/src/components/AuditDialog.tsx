@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Coffee, Loader2, RotateCcw, Square, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Coffee, Loader2, Play, RotateCcw, Square, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onCancel: (job: AuditJob) => void;
+  /** Starts the audit over from nothing. */
   onRetry: (job: AuditJob) => void;
+  /** Continues the stopped run's session, so finished subagents are not paid for twice. */
+  onResume: (job: AuditJob) => void;
   onOpenReport: (slug: string) => void;
 }
 
@@ -39,7 +42,7 @@ export function useTick(on: boolean) {
   }, [on]);
 }
 
-export function AuditDialog({ job, open, onClose, onCancel, onRetry, onOpenReport }: Props) {
+export function AuditDialog({ job, open, onClose, onCancel, onRetry, onResume, onOpenReport }: Props) {
   const running = job?.status === "running";
   useTick(open && running);
 
@@ -70,7 +73,13 @@ export function AuditDialog({ job, open, onClose, onCancel, onRetry, onOpenRepor
               {elapsed(job)}
             </span>
           </DialogTitle>
-          <p className="truncate font-mono text-xs text-muted-foreground">{job.url}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">
+            {job.url}
+            {job.languages && ` · ${job.languages.join(", ")} only`}
+            {[job.model, job.effort, job.subagents && "subagents on sonnet"].filter(Boolean).length > 0 &&
+              ` · ${[job.model, job.effort, job.subagents && "subagents on sonnet"].filter(Boolean).join(", ")}`}
+            {job.resumedFrom && " · resumed"}
+          </p>
         </DialogHeader>
 
         {running && job.keepAwake && (
@@ -149,8 +158,20 @@ export function AuditDialog({ job, open, onClose, onCancel, onRetry, onOpenRepor
                 Close
               </Button>
               {job.status !== "done" && (
-                <Button variant="outline" onClick={() => onRetry(job)}>
+                <Button
+                  variant="outline"
+                  onClick={() => onRetry(job)}
+                  title="Start over. Everything runs, and is paid for, again"
+                >
                   <RotateCcw className="size-3.5" /> Retry
+                </Button>
+              )}
+              {job.status !== "done" && job.sessionId && (
+                <Button
+                  onClick={() => onResume(job)}
+                  title="Continue where it stopped, in the same session. Use it after a usage limit resets"
+                >
+                  <Play className="size-3.5" /> Resume
                 </Button>
               )}
               {job.slug && (

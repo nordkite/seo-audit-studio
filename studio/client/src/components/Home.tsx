@@ -96,6 +96,11 @@ function ReportCard({
                   Page
                 </Badge>
               )}
+              {report.siteLanguages && (
+                <Badge variant="outline" className="h-4 px-1 font-mono text-[10px] uppercase">
+                  {report.siteLanguages.join(" · ")}
+                </Badge>
+              )}
             </div>
             <div className="truncate text-sm text-muted-foreground">
               {report.clientName || "—"}

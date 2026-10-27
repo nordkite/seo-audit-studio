@@ -3,10 +3,12 @@ import { randomUUID } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { validate } from "../../src/validate.ts";
+import { detectLanguages, pick, versionOf } from "../../scripts/site-languages.ts";
+import type { Report } from "../../src/types.ts";
 import { ROOT, backup, httpError, reportPath, writeReport } from "./store.ts";
 import { keepAwake } from "./keep-awake.ts";
 import { CLAUDE_BIN } from "./translate/cli.ts";
-import type { AuditJob, AuditRequest, AuditStep, DoctorCheck, Preflight } from "./types.ts";
+import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditStep, type DoctorCheck, type Preflight, type SiteLanguages } from "./types.ts";
 
 /**
  * Run `/new-audit` or `/new-page-audit` from the Studio.
@@ -77,6 +79,26 @@ function normalizeUrl(raw: unknown): string {
   return url.href;
 }
 
+/** The site's language versions, for the New report dialog to offer. */
+export async function siteLanguages(raw: unknown): Promise<SiteLanguages> {
+  const url = normalizeUrl(raw);
+  try {
+    return await detectLanguages(url);
+  } catch (e) {
+    throw httpError(502, `Could not read ${url}: ${(e as Error).message}`);
+  }
+}
+
+/** hreflang codes, lowercased and deduplicated. Anything else is refused. */
+function languageCodes(raw: unknown): string[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw httpError(400, "languages must be a list of language codes");
+  const codes = [...new Set(raw.map((l) => String(l).trim().toLowerCase()).filter(Boolean))];
+  const bad = codes.filter((c) => !/^[a-z]{2,3}(-[a-z0-9]{1,8})*$/.test(c));
+  if (bad.length) throw httpError(400, `Not a language code: ${bad.join(", ")}`);
+  return codes;
+}
+
 function reportMtimes(): Map<string, number> {
   if (!existsSync(REPORTS)) return new Map();
   return new Map(
@@ -126,6 +148,16 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
   // Never sent to the agent: claude-seo only needs the URL. finish() writes it
   // into the report, so it goes on the cover exactly as typed.
   const clientName = String(req.clientName ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 120);
+  const languages = scope === "site" ? languageCodes(req.languages) : [];
+
+  // Checked here rather than half an hour into the run.
+  if (languages.length) {
+    try {
+      pick(await detectLanguages(url), languages);
+    } catch (e) {
+      throw httpError(400, (e as Error).message);
+    }
+  }
 
   const check = await preflight();
   if (!check.ok) {
@@ -136,50 +168,133 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
     );
   }
 
-  const command = COMMAND[scope];
-  const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 6)}`;
-  mkdirSync(LOGS, { recursive: true });
-  const logPath = join(LOGS, `${id}.jsonl`);
-  const log = createWriteStream(logPath);
-
+  const id = newId();
   const job: AuditJob = {
     id,
     url,
     scope,
     clientName,
+    ...(languages.length ? { languages } : {}),
+    ...runOptions(req),
     status: "running",
     startedAt: Date.now(),
     steps: [],
     keepAwake: null,
-    log: relative(ROOT, logPath),
+    log: relative(ROOT, join(LOGS, `${id}.jsonl`)),
   };
-  jobs.unshift(job);
-  jobs.splice(KEEP_JOBS);
-
-  const step = (text: string, nested = false) => {
-    const s: AuditStep = { at: Date.now(), text, ...(nested ? { nested } : {}) };
-    job.steps.push(s);
-    if (job.steps.length > MAX_STEPS) job.steps.splice(0, job.steps.length - MAX_STEPS);
-  };
+  addJob(job);
 
   // The agent writes the report file directly, past the Studio's own backups,
   // and /new-audit overwrites a report of the same site without asking. Keep
   // a copy of the one it is most likely to replace.
   if (scope === "site") {
-    const slug = new URL(url).hostname.replace(/^www\./, "").replace(/[^a-z0-9]+/g, "-");
+    const host = new URL(url).hostname.replace(/^www\./, "").replace(/[^a-z0-9]+/g, "-");
+    const slug = languages.length ? `${host}--${languages.join("-")}` : host;
     if (existsSync(reportPath(slug))) {
       backup(reportPath(slug), slug);
-      step(`Backed up the existing reports/${slug}.json to .studio-backups/${slug}/`);
+      step(job, `Backed up the existing reports/${slug}.json to .studio-backups/${slug}/`);
     }
   }
 
-  const before = reportMtimes();
-  step(`Starting /${command} ${url}`);
+  const prompt = `/${COMMAND[scope]} ${url}${languages.length ? ` --languages ${languages.join(",")}` : ""}`;
+  run(job, prompt);
+  return job;
+}
+
+/**
+ * Picks up a failed or cancelled audit where it stopped, in the same Claude
+ * session, so the subagents that already reported are not run (and paid for)
+ * again. The usual reason is a usage limit hit mid-run.
+ */
+export function resumeAudit(id: string): AuditJob {
+  const old = jobs.find((j) => j.id === id);
+  if (!old) throw httpError(404, `No such audit: ${id}`);
+  if (old.status !== "failed" && old.status !== "cancelled") {
+    throw httpError(409, "Only a failed or cancelled audit can be resumed.");
+  }
+  if (!old.sessionId) throw httpError(409, "This audit never started a session, so there is nothing to resume. Retry it instead.");
+  if (jobs.some((j) => j.status === "running")) {
+    throw httpError(409, "An audit is already running. Wait for it or cancel it first.");
+  }
+
+  const newJobId = newId();
+  const job: AuditJob = {
+    id: newJobId,
+    url: old.url,
+    scope: old.scope,
+    clientName: old.clientName,
+    ...(old.languages ? { languages: old.languages } : {}),
+    ...runOptions(old),
+    resumedFrom: old.id,
+    since: old.since ?? old.startedAt,
+    status: "running",
+    startedAt: Date.now(),
+    steps: [],
+    keepAwake: null,
+    log: relative(ROOT, join(LOGS, `${newJobId}.jsonl`)),
+  };
+  addJob(job);
+  step(job, `Resuming session ${old.sessionId}`);
+  run(
+    job,
+    "The audit stopped before it finished, most likely on a usage limit. Continue from where it stopped: " +
+      "do not repeat subagents or checks that already reported. If the report is already written, validate it and finish.",
+    old.sessionId,
+    old.since ?? old.startedAt
+  );
+  return job;
+}
+
+const newId = () => `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 6)}`;
+
+function addJob(job: AuditJob) {
+  jobs.unshift(job);
+  jobs.splice(KEEP_JOBS);
+}
+
+function step(job: AuditJob, text: string, nested = false) {
+  const s: AuditStep = { at: Date.now(), text, ...(nested ? { nested } : {}) };
+  job.steps.push(s);
+  if (job.steps.length > MAX_STEPS) job.steps.splice(0, job.steps.length - MAX_STEPS);
+}
+
+/** Model, effort and subagent choice, validated. Left out means the user's own Claude Code settings. */
+function runOptions(req: Partial<AuditRequest>): Pick<AuditRequest, "model" | "effort" | "subagents"> {
+  const out: Pick<AuditRequest, "model" | "effort" | "subagents"> = {};
+  if (req.model) {
+    if (!(AUDIT_MODELS as readonly string[]).includes(req.model)) throw httpError(400, `Unknown model: ${req.model}`);
+    out.model = req.model;
+  }
+  if (req.effort) {
+    if (!(EFFORTS as readonly string[]).includes(req.effort)) throw httpError(400, `Unknown effort: ${req.effort}`);
+    out.effort = req.effort;
+  }
+  if (req.subagents) {
+    if (req.subagents !== "sonnet") throw httpError(400, `Unknown subagent choice: ${req.subagents}`);
+    out.subagents = req.subagents;
+  }
+  return out;
+}
+
+/**
+ * Starts claude for a job, or resumes `session`, and follows it to the end.
+ * A resumed run counts a report written any time since `since`, the original
+ * start, so one written before the run stopped still counts.
+ */
+function run(job: AuditJob, prompt: string, session?: string, since?: number) {
+  const command = COMMAND[job.scope];
+  mkdirSync(LOGS, { recursive: true });
+  const log = createWriteStream(join(ROOT, job.log));
+  const before = since ? new Map<string, number>() : reportMtimes();
+  step(job, session ? "Continuing" : `Starting ${prompt}`);
 
   const proc = spawn(
     CLAUDE_BIN,
     [
       "-p",
+      ...(session ? ["--resume", session] : []),
+      ...(job.model ? ["--model", job.model] : []),
+      ...(job.effort ? ["--effort", job.effort] : []),
       "--output-format",
       "stream-json",
       "--verbose",
@@ -191,6 +306,12 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
     {
       cwd: ROOT,
       stdio: ["pipe", "pipe", "pipe"],
+      // claude-seo's agents name their own models in their frontmatter; only
+      // the FORCE variable overrides that.
+      env:
+        job.subagents === "sonnet"
+          ? { ...process.env, CLAUDE_CODE_SUBAGENT_MODEL: "sonnet", CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1" }
+          : process.env,
       // Its own process group, so cancelling takes Bash children down too.
       // Not on Windows, where detached means a new console window.
       detached: process.platform !== "win32",
@@ -201,12 +322,12 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
 
   // The prompt goes in on stdin: --allowedTools takes a list and would swallow
   // a positional prompt after it.
-  proc.stdin.end(`/${command} ${url}`);
+  proc.stdin.end(prompt);
 
   if (proc.pid) {
     keepAwake(proc.pid).then((k) => {
       job.keepAwake = k;
-      if (!k.ok) step(`Could not keep the computer awake (${k.method}: ${k.detail ?? "failed"})`);
+      if (!k.ok) step(job, `Could not keep the computer awake (${k.method}: ${k.detail ?? "failed"})`);
     });
   }
 
@@ -231,12 +352,14 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
     } catch {
       return;
     }
+    // Kept so a run that stops on a usage limit can be resumed, not restarted.
+    if (typeof ev.session_id === "string") job.sessionId ??= ev.session_id;
     if (ev.type === "assistant") {
       const nested = Boolean(ev.parent_tool_use_id);
       for (const block of ev.message?.content ?? []) {
         if (block.type !== "tool_use") continue;
         const text = describe(block.name, block.input ?? {});
-        if (text) step(text, nested);
+        if (text) step(job, text, nested);
       }
     } else if (ev.type === "result") {
       job.costUsd = ev.total_cost_usd;
@@ -246,7 +369,7 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
       // unnoticed into a client report.
       const denied: { tool_name: string; tool_input?: Record<string, unknown> }[] = ev.permission_denials ?? [];
       for (const d of denied) {
-        step(`Permission denied: ${d.tool_name} ${short(d.tool_input?.command ?? d.tool_input?.url ?? "", 70)}`);
+        step(job, `Permission denied: ${d.tool_name} ${short(d.tool_input?.command ?? d.tool_input?.url ?? "", 70)}`);
       }
       if (denied.length) {
         job.message = `${denied.length} tool call(s) were denied, so some checks may not have run. ` +
@@ -273,19 +396,20 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
       job.message ||= stderr.trim() || `claude exited with code ${code}`;
     }
     if (job.status === "failed") return;
-    finish(job, before);
+    finish(job, before, since ?? job.startedAt).catch((e) => {
+      job.status = "failed";
+      job.message = (e as Error).message;
+    });
   });
-
-  return job;
 }
 
 /**
  * The run is only a success if it left a report the renderer will accept.
  * The newest report file written since the start is taken to be its output.
  */
-function finish(job: AuditJob, before: Map<string, number>) {
+async function finish(job: AuditJob, before: Map<string, number>, since: number) {
   const written = [...reportMtimes()]
-    .filter(([slug, mtime]) => mtime > (before.get(slug) ?? 0) && mtime >= job.startedAt)
+    .filter(([slug, mtime]) => mtime > (before.get(slug) ?? 0) && mtime >= since)
     .sort((a, b) => b[1] - a[1]);
 
   if (!written.length) {
@@ -299,19 +423,63 @@ function finish(job: AuditJob, before: Map<string, number>) {
   const [slug] = written[0];
   job.slug = slug;
   const path = join(REPORTS, `${slug}.json`);
+  let report: Report;
   try {
-    const report = JSON.parse(readFileSync(path, "utf8"));
+    report = JSON.parse(readFileSync(path, "utf8"));
     validate(report, path);
-    // The agent derives a name from the site; the one typed in the Studio wins.
-    if (job.clientName && report.meta.clientName !== job.clientName) {
-      report.meta.clientName = job.clientName;
-      writeReport(slug, report);
-    }
-    job.status = "done";
   } catch (e) {
     job.status = "failed";
     job.message = `reports/${slug}.json was written but is not valid: ${(e as Error).message}`;
+    return;
   }
+  // The agent derives a name from the site; the one typed in the Studio wins.
+  // Same for the language versions: the cover must name the ones chosen.
+  let changed = false;
+  if (job.clientName && report.meta.clientName !== job.clientName) {
+    report.meta.clientName = job.clientName;
+    changed = true;
+  }
+  if (job.languages && report.meta.languages?.join() !== job.languages.join()) {
+    report.meta.languages = job.languages;
+    changed = true;
+  }
+  if (changed) writeReport(slug, report);
+  if (job.languages) {
+    const outside = await outsideLanguages(report, job.url, job.languages);
+    if (outside) job.message = `${outside}\n\n${job.message ?? ""}`.trim();
+  }
+  job.status = "done";
+}
+
+/**
+ * Findings whose evidence points at a language version that was not chosen.
+ * Only a warning: an hreflang finding rightly cites the other side of a broken
+ * return link. Anything else there is a check that strayed out of scope.
+ */
+async function outsideLanguages(report: Report, url: string, languages: string[]): Promise<string | null> {
+  let site;
+  try {
+    site = await detectLanguages(url);
+  } catch (e) {
+    return `Could not re-read the language versions to check the findings' evidence: ${(e as Error).message}`;
+  }
+  const chosen = pick(site, languages);
+  const lines: string[] = [];
+  for (const f of report.findings) {
+    if (typeof f.evidence !== "string") continue;
+    for (const [u] of f.evidence.matchAll(/https?:\/\/[^\s,;)"'<>]+/g)) {
+      const v = versionOf(u, site.versions);
+      if (v && !chosen.includes(v)) {
+        lines.push(`• ${f.id}: ${u} (${v.langs[0]})`);
+        break;
+      }
+    }
+  }
+  if (!lines.length) return null;
+  return (
+    `${lines.length} finding(s) cite pages outside the chosen language versions (${languages.join(", ")}). ` +
+    `An hreflang return-link finding may do that; check any other before sending the report.\n${lines.join("\n")}`
+  );
 }
 
 export function cancelAudit(id: string): AuditJob {

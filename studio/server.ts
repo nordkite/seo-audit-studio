@@ -20,7 +20,7 @@ import {
   skeleton,
 } from "./lib/store.ts";
 import { listModels, translateReport } from "./lib/translate/index.ts";
-import { cancelAudit, killChild, listJobs, preflight, startAudit } from "./lib/audit.ts";
+import { cancelAudit, killChild, listJobs, preflight, resumeAudit, siteLanguages, startAudit } from "./lib/audit.ts";
 import { DEFAULT_MODEL } from "./lib/translate/anthropic.ts";
 import type { BrandDoc, Health, TranslateEvent } from "./lib/types.ts";
 
@@ -248,8 +248,14 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
 
   if (p === "/api/audits/preflight" && req.method === "GET") return json(res, 200, await preflight());
   if (p === "/api/audits" && req.method === "GET") return json(res, 200, { jobs: listJobs() });
+  if (p === "/api/audits/languages" && req.method === "GET") {
+    return json(res, 200, await siteLanguages(url.searchParams.get("url")));
+  }
   if (p === "/api/audits" && req.method === "POST") {
     return json(res, 202, await startAudit(await readBody(req)));
+  }
+  if (seg[0] === "api" && seg[1] === "audits" && seg[2] && seg[3] === "resume" && req.method === "POST") {
+    return json(res, 202, resumeAudit(seg[2]));
   }
   if (seg[0] === "api" && seg[1] === "audits" && seg[2] && req.method === "DELETE") {
     return json(res, 200, cancelAudit(seg[2]));
