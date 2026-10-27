@@ -65,6 +65,11 @@ export function validate(report: Report, path: string): void {
       }
       if (!f.title) problems.push(`findings[${i}] (${f.id ?? "no id"}): missing title`);
     });
+    for (const id of report.express?.findings ?? []) {
+      const f = report.findings.find((x) => x.id === id);
+      if (!f) problems.push(`\`express.findings\`: no finding "${id}"`);
+      else if (f.severity === "pass") problems.push(`\`express.findings\`: "${id}" is a pass; there is nothing to fix`);
+    }
   }
 
   // Custom sections are optional, but a bad `after` silently drops the section
@@ -114,6 +119,12 @@ export function validate(report: Report, path: string): void {
     }
     for (const k of ["lcp", "inp", "cls", ...LIGHTHOUSE] as const) {
       if (cwv[k] != null && typeof cwv[k] !== "number") problems.push(`\`metrics.coreWebVitals.${k}\` must be a number`);
+    }
+    for (const k of LIGHTHOUSE) {
+      const v = cwv[k];
+      if (typeof v === "number" && (v < 0 || v > 100)) {
+        problems.push(`\`metrics.coreWebVitals.${k}\` is a Lighthouse score, 0–100`);
+      }
     }
     if (typeof cwv.lcp === "number" && cwv.lcp < 50) {
       problems.push("`metrics.coreWebVitals.lcp` is in milliseconds (2300), not seconds (2.3)");

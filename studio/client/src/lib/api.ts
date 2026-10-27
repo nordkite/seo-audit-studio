@@ -4,6 +4,7 @@ import type {
   BrandDoc,
   BrandTheme,
   Doc,
+  Edition,
   Health,
   Lang,
   ModelsResult,
@@ -112,8 +113,8 @@ export const api = {
     throw new Error("The translation stopped without a result.");
   },
 
-  render: (slug: string, langs: Lang[]) =>
-    post(`/api/render/${slug}`, { langs }).then((r) =>
+  render: (slug: string, langs: Lang[], edition: Edition = "full") =>
+    post(`/api/render/${slug}`, { langs, edition }).then((r) =>
       unwrap<{ code: number; stdout: string; stderr: string }>(r)
     ),
 
@@ -146,8 +147,14 @@ export const api = {
    * Renders the editor's live buffer, so the preview never lags a save behind.
    * A `theme` previews brand colors that have not been saved yet.
    */
-  preview: async (lang: Lang, report: Report, part: "body" | "cover", theme?: BrandTheme) => {
-    const res = await post(`/api/preview/${lang}`, { report, part, theme });
+  preview: async (
+    lang: Lang,
+    report: Report,
+    part: "body" | "cover",
+    theme?: BrandTheme,
+    edition: Edition = "full"
+  ) => {
+    const res = await post(`/api/preview/${lang}`, { report, part, theme, edition });
     if (!res.ok) throw new Error((await res.json()).error ?? res.statusText);
     return res.text();
   },

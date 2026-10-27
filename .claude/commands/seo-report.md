@@ -1,6 +1,6 @@
 ---
 description: Generate a branded PDF SEO report from a report JSON, in one or more languages.
-argument-hint: <report-slug> [--lang et|ru|en] [--all]
+argument-hint: <report-slug> [--lang et|ru|en] [--all] [--express]
 allowed-tools: Bash, Read, Glob
 ---
 
@@ -24,7 +24,14 @@ Generate the client-facing PDF from structured audit data. Arguments: `$ARGUMENT
    npm run report -- <slug> --all          # every translated language
    npm run report -- <slug> --lang et      # one language
    npm run report -- <slug> --lang et --lang ru
+   npm run report -- <slug> --all --express  # the free excerpt, see below
    ```
+
+   `--express` renders the express edition from the same report: the cover
+   with the full counts, the summary, scores and measured data, then only the
+   findings marked for it (`express.findings`, or the top 5 by severity and
+   impact). It leaves out the roadmap; custom sections appear in both
+   editions. Files are named `SEO-Express-Audit-…`.
 
 4. **Report back** the output paths and file sizes. Do not open the PDFs. If the
    output warned that no brand config was found, say so plainly: the PDF carries

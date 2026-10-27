@@ -7,7 +7,7 @@ import { ThemePanel } from "@/components/ThemePanel";
 import { api } from "@/lib/api";
 import { LANG_LABEL } from "@/lib/report";
 import { cn } from "@/lib/utils";
-import type { BrandDoc, BrandTheme, Lang, Report } from "@/lib/types";
+import type { BrandDoc, BrandTheme, Edition, Lang, Report } from "@/lib/types";
 
 /** A4 width/height in CSS pixels at 96dpi — report.css is authored in mm. */
 const PAGE_PX = (210 / 25.4) * 96;
@@ -18,12 +18,13 @@ interface Props {
   lang: Lang;
   /** A save, render or translation is under way. */
   busy: boolean;
-  /** Renders the saved report in `lang` to a PDF in out/. */
-  onRender: () => void;
+  /** Renders the saved report in `lang` to a PDF in out/, as the edition on screen. */
+  onRender: (edition: Edition) => void;
 }
 
 export function PreviewPane({ report, lang, busy, onRender }: Props) {
   const [part, setPart] = useState<"body" | "cover">("body");
+  const [edition, setEdition] = useState<Edition>("full");
   const [html, setHtml] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -69,7 +70,7 @@ export function PreviewPane({ report, lang, busy, onRender }: Props) {
     setPending(true);
     const t = setTimeout(() => {
       api
-        .preview(lang, report, part, theme ?? undefined)
+        .preview(lang, report, part, theme ?? undefined, edition)
         .then((h) => {
           if (cancelled) return;
           setHtml(h);
@@ -83,13 +84,13 @@ export function PreviewPane({ report, lang, busy, onRender }: Props) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [report, lang, part, theme]);
+  }, [report, lang, part, theme, edition]);
 
   // A different page is a different document: start it at the top. Edits to
   // the same page keep the reader where they were.
   useEffect(() => {
     boxRef.current?.scrollTo({ top: 0 });
-  }, [part]);
+  }, [part, edition]);
 
   // The height of the content itself, not of the frame. scrollHeight never
   // reports less than the iframe's current height, so a shorter document would
@@ -118,12 +119,24 @@ export function PreviewPane({ report, lang, busy, onRender }: Props) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex h-12 shrink-0 items-center justify-between border-b px-3">
-        <Tabs value={part} onValueChange={(v) => setPart(v as "body" | "cover")}>
-          <TabsList>
-            <TabsTrigger value="body">Body</TabsTrigger>
-            <TabsTrigger value="cover">Cover</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-2">
+          <Tabs value={part} onValueChange={(v) => setPart(v as "body" | "cover")}>
+            <TabsList>
+              <TabsTrigger value="body">Body</TabsTrigger>
+              <TabsTrigger value="cover">Cover</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Tabs value={edition} onValueChange={(v) => setEdition(v as Edition)}>
+            <TabsList>
+              <TabsTrigger value="full" title="The paid report: every finding, roadmap and custom sections">
+                Full
+              </TabsTrigger>
+              <TabsTrigger value="express" title="The free excerpt: summary, scores and the ⚡ findings">
+                Express
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {pending && <Loader2 className="size-3 animate-spin" />}
           <span title="An iframe is one continuous flow — only the PDF shows real page breaks.">
@@ -143,9 +156,9 @@ export function PreviewPane({ report, lang, busy, onRender }: Props) {
           <Button
             variant="outline"
             size="sm"
-            onClick={onRender}
+            onClick={() => onRender(edition)}
             disabled={busy}
-            title={`Render the ${LANG_LABEL[lang]} PDF from the saved report and brand.json`}
+            title={`Render the ${edition === "express" ? "express " : ""}${LANG_LABEL[lang]} PDF from the saved report and brand.json`}
             className="h-7 text-xs text-foreground"
           >
             <FileDown /> Render PDF

@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { GripVertical, Trash2, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,10 @@ interface Props {
   statusOf: (path: string) => FieldStatus | undefined;
   onChange: (next: Finding) => void;
   onDelete: () => void;
+  /** Shown in the express report. */
+  inExpress?: boolean;
+  /** Absent for passes, which the express report never shows. */
+  onToggleExpress?: () => void;
   disabled?: boolean;
 }
 
@@ -34,6 +38,8 @@ export function FindingCard({
   statusOf,
   onChange,
   onDelete,
+  inExpress,
+  onToggleExpress,
   disabled,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -89,6 +95,21 @@ export function FindingCard({
             <ChevronRight className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
           )}
         </button>
+
+        {onToggleExpress && (
+          <button
+            onClick={onToggleExpress}
+            disabled={disabled}
+            aria-pressed={inExpress}
+            title={inExpress ? "Shown in the express report. Click to leave it out" : "Show in the express report"}
+            className={cn(
+              "mt-0.5 rounded p-1 hover:bg-accent disabled:opacity-30",
+              inExpress ? "text-sev-warning" : "text-muted-foreground/40 hover:text-muted-foreground"
+            )}
+          >
+            <Zap className={cn("size-3.5", inExpress && "fill-current")} />
+          </button>
+        )}
       </div>
 
       {open && (

@@ -6,7 +6,7 @@ import { renderCover, renderBody } from "./render.ts";
 import { SUPPORTED_LANGS, availableLangs, isLang } from "./i18n.ts";
 import { validate } from "./validate.ts";
 import { loadBrand, BRAND_DIR } from "./brand.ts";
-import type { Lang, Report } from "./types.ts";
+import type { Edition, Lang, Report } from "./types.ts";
 
 const ROOT = join(import.meta.dirname, "..");
 
@@ -16,6 +16,7 @@ seo-report — white-label multilingual PDF SEO audits
   npm run report -- <report>            generate in the report's source language
   npm run report -- <report> --lang et  generate in Estonian
   npm run report -- <report> --all      generate every translated language
+  npm run report -- <report> --express  the short free excerpt instead of the full report
 
 Arguments
   <report>          slug (looked up in reports/<slug>.json) or a path to a JSON file
@@ -24,6 +25,7 @@ Options
   --lang, -l <code> ${SUPPORTED_LANGS.join(" | ")}   (repeatable)
   --all             every language the report is actually translated into
   --out, -o <dir>   output directory (default: out/)
+  --express         express edition: summary, scores and the top findings only
   --html            also write the intermediate HTML, for debugging layout
   --help, -h
 
@@ -41,17 +43,19 @@ interface Options {
   out: string;
   all: boolean;
   html: boolean;
+  edition: Edition;
   input: string | null;
 }
 
 function parseArgs(argv: string[]): Options {
-  const opts: Options = { langs: [], out: join(ROOT, "out"), all: false, html: false, input: null };
+  const opts: Options = { langs: [], out: join(ROOT, "out"), all: false, html: false, edition: "full", input: null };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--help" || a === "-h") return { ...opts, help: true };
     else if (a === "--all" || a === "--all-langs") opts.all = true;
     else if (a === "--html") opts.html = true;
+    else if (a === "--express") opts.edition = "express";
     else if (a === "--lang" || a === "-l") opts.langs.push(argv[++i]);
     else if (a.startsWith("--lang=")) opts.langs.push(a.slice(7));
     else if (a === "--out" || a === "-o") opts.out = resolve(argv[++i]);
@@ -139,16 +143,18 @@ async function main() {
 
   for (const lang of langs) {
     const started = Date.now();
-    const pdf = await renderPdf(report, lang);
-    const file = nextFreeName(opts.out, `SEO-Audit-${slug}-${lang}-${today()}`, ".pdf");
+    const pdf = await renderPdf(report, lang, opts.edition);
+    const kind = opts.edition === "express" ? "SEO-Express-Audit" : "SEO-Audit";
+    const file = nextFreeName(opts.out, `${kind}-${slug}-${lang}-${today()}`, ".pdf");
     writeFileSync(file, pdf);
 
     const kb = (pdf.length / 1024).toFixed(0);
     console.log(`  ✓ ${lang}  ${file}  (${kb} KB, ${Date.now() - started} ms)`);
 
     if (opts.html) {
-      writeFileSync(join(opts.out, `${slug}-${lang}-cover.html`), renderCover(report, lang));
-      writeFileSync(join(opts.out, `${slug}-${lang}-body.html`), renderBody(report, lang));
+      const tag = opts.edition === "express" ? "-express" : "";
+      writeFileSync(join(opts.out, `${slug}-${lang}${tag}-cover.html`), renderCover(report, lang, undefined, opts.edition));
+      writeFileSync(join(opts.out, `${slug}-${lang}${tag}-body.html`), renderBody(report, lang, undefined, opts.edition));
     }
   }
 }

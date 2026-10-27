@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { loadStrings, t, formatDate, formatLanguages, formatNumber, type Strings } from "./i18n.ts";
 import { loadBrand, type Brand } from "./brand.ts";
+import { expressFindings } from "./express.ts";
 import {
   autoCards,
   cardShades,
@@ -17,6 +18,7 @@ import {
   LIGHTHOUSE,
   SEVERITIES,
   type CoreWebVitalsMetrics,
+  type Edition,
   type Finding,
   type Lang,
   type Meta,
@@ -67,8 +69,9 @@ function brandLink(brand: Brand): string {
     : esc(brand.name);
 }
 
-/** "SEO Audit Report", or "SEO Page Audit" when the report covers one URL. */
-function kicker(report: Report, s: Strings): string {
+/** "SEO Audit Report", "SEO Page Audit" when the report covers one URL, or "SEO Express Audit". */
+function kicker(report: Report, s: Strings, edition: Edition = "full"): string {
+  if (edition === "express") return s.doc.kickerExpress;
   return report.meta.scope === "page" ? s.doc.kickerPage : s.doc.kicker;
 }
 
@@ -225,6 +228,19 @@ function severitySection(
       ${list}
     </section>`;
 }
+
+/** The express edition's findings: the few expressFindings() picks, as full cards. */
+function keyIssuesSection(report: Report, lang: Lang, sourceLang: Lang, s: Strings): string {
+  const shown = expressFindings(report);
+  if (!shown.length) return "";
+  return `
+    <section class="section section--break">
+      <div class="section__head"><h2>${esc(s.sections.keyIssues)}</h2></div>
+      <p class="section__hint">${esc(s.sectionHints.keyIssues)}</p>
+      ${shown.map((f) => findingCard(f, lang, sourceLang, s)).join("")}
+    </section>`;
+}
+
 
 /**
  * A hand-authored section — prose, an image, or both. Unlike findings these
@@ -591,12 +607,31 @@ function closingNote(report: Report, lang: Lang, fallback: string): string {
 }
 
 /**
+ * The express edition's note on what it left out. Like the closing note, an
+ * untranslated custom note falls back to the chrome default, not to English.
+ */
+function expressNote(report: Report, lang: Lang, s: Strings): string {
+  const open = report.findings.filter((f) => f.severity !== "pass");
+  const counts: Record<string, string> = {
+    shown: formatNumber(expressFindings(report).length, s.locale),
+    total: formatNumber(open.length, s.locale),
+  };
+  const text = report.expressNote?.[lang]?.trim() || s.doc.expressNote;
+  return text.replace(/\{(shown|total)\}/g, (_: string, k: string) => counts[k]);
+}
+
+/**
  * Cover page — rendered as its own zero-margin document so it bleeds.
  *
  * `brand` defaults to brand.json; the Studio passes an unsaved edit of it to
  * preview colors before they are written.
  */
-export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand()): string {
+export function renderCover(
+  report: Report,
+  lang: Lang,
+  brand: Brand = loadBrand(),
+  edition: Edition = "full"
+): string {
   const s = loadStrings(lang);
   const sourceLang = report.meta.sourceLang ?? "en";
   const { locale } = s;
@@ -615,7 +650,7 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
 
   return shell(
     lang,
-    `${kicker(report, s)} — ${m.site}`,
+    `${kicker(report, s, edition)} — ${m.site}`,
     `
 <div class="cover">
   <div class="cover__top">
@@ -624,7 +659,7 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
   </div>
 
   <div class="cover__title">
-    <div class="cover__kicker">${esc(kicker(report, s))}</div>
+    <div class="cover__kicker">${esc(kicker(report, s, edition))}</div>
     <h1 class="cover__site">${esc(m.site)}</h1>
     <div class="cover__client">${esc(m.clientName)}</div>
   </div>
@@ -687,8 +722,20 @@ export function renderCover(report: Report, lang: Lang, brand: Brand = loadBrand
   );
 }
 
-/** Body pages — rendered with margins so the running header/footer fit. */
-export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand()): string {
+/**
+ * Body pages — rendered with margins so the running header/footer fit.
+ *
+ * The express edition keeps the summary, the breakdown and the measured data,
+ * shows only expressFindings() in place of the findings sections, and drops the
+ * roadmap. Custom sections appear in both editions, at their usual anchors.
+ */
+export function renderBody(
+  report: Report,
+  lang: Lang,
+  brand: Brand = loadBrand(),
+  edition: Edition = "full"
+): string {
+  const express = edition === "express";
   const s = loadStrings(lang);
   const sourceLang = report.meta.sourceLang ?? "en";
   const m = report.meta;
@@ -744,7 +791,7 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
 
   return shell(
     lang,
-    `${kicker(report, s)} — ${m.site}`,
+    `${kicker(report, s, edition)} — ${m.site}`,
     `
 <main class="sheet">
 
@@ -769,14 +816,18 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
 
   ${at("breakdown")}
 
-  ${SEVERITIES.map((sev) =>
-    severitySection(sev, report.findings, lang, sourceLang, s, { breakBefore: true })
-  ).join("")}
+  ${
+    express
+      ? keyIssuesSection(report, lang, sourceLang, s)
+      : SEVERITIES.map((sev) =>
+          severitySection(sev, report.findings, lang, sourceLang, s, { breakBefore: true })
+        ).join("")
+  }
 
   ${at("findings")}
 
   ${
-    roadmap
+    roadmap && !express
       ? `<section class="section section--break">
            <div class="section__head"><h2>${esc(s.sections.roadmap)}</h2></div>
            <ol class="roadmap">${roadmap}</ol>
@@ -796,6 +847,8 @@ export function renderBody(report: Report, lang: Lang, brand: Brand = loadBrand(
   }
 
   ${at("notCovered")}
+
+  ${express ? `<div class="method expressnote">${esc(expressNote(report, lang, s))}</div>` : ""}
 
   <div class="endslug">
     <div class="endslug__logo">${logo(brand, brand.body.logo)}</div>
@@ -830,7 +883,8 @@ export const BODY_MARGIN_MM = { top: 20, bottom: 18 } as const;
 export function runningTemplates(
   report: Report,
   lang: Lang,
-  brand: Brand = loadBrand()
+  brand: Brand = loadBrand(),
+  edition: Edition = "full"
 ): { header: string; footer: string } {
   const s = loadStrings(lang);
   const m = report.meta;
@@ -857,7 +911,7 @@ export function runningTemplates(
     <div style="${base} position: relative; width: 100%; padding: 0 18mm; margin-top: 8mm;
                 display: flex; justify-content: space-between; align-items: center;">
       <span style="color: ${text}; font-weight: 600;">${esc(m.site)}</span>
-      <span>${esc(kicker(report, s))}</span>
+      <span>${esc(kicker(report, s, edition))}</span>
     </div>`;
 
   const footer = `${fontCss}${paint("bottom")}

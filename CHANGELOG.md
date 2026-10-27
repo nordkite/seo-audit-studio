@@ -31,6 +31,17 @@
 - **Resume a stopped audit.** A failed or cancelled audit continues its own
   Claude session from where it stopped, so a run cut off by a usage limit does
   not pay for its finished subagents again.
+- **Express edition.** `npm run report -- <slug> --express`, or Full / Express
+  above the Studio's preview, renders a short free excerpt of the same report:
+  the cover with the full issue counts, the summary, scores and measured data,
+  and only the key findings. Those are the top 5 by severity and impact unless
+  picked with ⚡ on the findings board. The roadmap stays in the full report;
+  custom sections and the closing note appear in both. An "Express audit note"
+  at the end says how many issues the audit found and what the full audit
+  adds, or any text you write there, with `{shown}` and `{total}` filled in.
+- **Core Web Vitals and Lighthouse scores can be edited in the Studio**: the
+  device, field or lab source, measured URL, LCP, INP, CLS and the four
+  Lighthouse scores. Scores outside 0–100 fail validation.
 
 ### Fixed
 

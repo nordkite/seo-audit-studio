@@ -3,6 +3,7 @@
 export * from "../../../../src/types.ts";
 export * from "../../../lib/types.ts";
 export * from "../../../../src/theme.ts";
+export * from "../../../../src/express.ts";
 
 import type { Effort, Provider, Scope } from "../../../lib/types.ts";
 

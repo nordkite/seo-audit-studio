@@ -4,6 +4,7 @@
   "doc": {
     "kicker": "SEO Audit Report",
     "kickerPage": "SEO Page Audit",
+    "kickerExpress": "SEO Express Audit",
     "preparedFor": "Prepared for",
     "preparedBy": "Prepared by",
     "auditedOn": "Audit date",
@@ -14,7 +15,8 @@
     "contents": "Contents",
     "page": "Page",
     "of": "of",
-    "confidential": "Confidential — prepared for the named client only."
+    "confidential": "Confidential — prepared for the named client only.",
+    "expressNote": "This express report shows {shown} of the {total} issues the audit found. The full audit covers every issue with its evidence and how to fix it, and a prioritised action plan."
   },
   "score": {
     "label": "Overall score",
@@ -37,13 +39,15 @@
     "roadmap": "Recommended order of work",
     "notCovered": "Not covered by this audit",
     "searchConsole": "Search performance (Search Console)",
-    "coreWebVitals": "Core Web Vitals"
+    "coreWebVitals": "Core Web Vitals",
+    "keyIssues": "Key issues"
   },
   "sectionHints": {
     "critical": "Must fix — these actively cost you traffic today.",
     "warning": "Should fix — meaningful gains for modest effort.",
     "opportunity": "Nice to have — refinements once the above are done.",
-    "pass": "Verified as correct. No action needed."
+    "pass": "Verified as correct. No action needed.",
+    "keyIssues": "The most serious issues the audit found, in order of priority."
   },
   "severity": {
     "critical": "Critical",

@@ -4,6 +4,7 @@
   "doc": {
     "kicker": "SEO auditi aruanne",
     "kickerPage": "Lehe SEO audit",
+    "kickerExpress": "SEO kiiraudit",
     "preparedFor": "Koostatud kliendile",
     "preparedBy": "Koostaja",
     "auditedOn": "Auditi kuupäev",
@@ -14,7 +15,8 @@
     "contents": "Sisukord",
     "page": "Lk",
     "of": "/",
-    "confidential": "Konfidentsiaalne — koostatud üksnes nimetatud kliendile."
+    "confidential": "Konfidentsiaalne — koostatud üksnes nimetatud kliendile.",
+    "expressNote": "Kiiraudit näitab {total} leitud probleemist {shown}. Põhjalik audit sisaldab kõiki leitud probleeme koos tõendite ja lahendustega ning tähtsuse järgi järjestatud tööplaani."
   },
   "score": {
     "label": "Koondhinne",
@@ -37,13 +39,15 @@
     "roadmap": "Soovitatav töö järjekord",
     "notCovered": "Mida see audit ei katnud",
     "searchConsole": "Nähtavus otsingus (Search Console)",
-    "coreWebVitals": "Core Web Vitals"
+    "coreWebVitals": "Core Web Vitals",
+    "keyIssues": "Olulisemad probleemid"
   },
   "sectionHints": {
     "critical": "Tuleb parandada — need maksavad teile liiklust juba täna.",
     "warning": "Tasub parandada — märkimisväärne võit mõõduka vaevaga.",
     "opportunity": "Kasulik lisa — täpsustused, kui ülaltoodu on tehtud.",
-    "pass": "Kontrollitud ja korras. Tegevust ei vaja."
+    "pass": "Kontrollitud ja korras. Tegevust ei vaja.",
+    "keyIssues": "Auditi käigus leitud kõige tõsisemad probleemid tähtsuse järjekorras."
   },
   "severity": {
     "critical": "Kriitiline",

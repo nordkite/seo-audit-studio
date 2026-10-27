@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster, toast } from "sonner";
+import { Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Topbar } from "@/components/Topbar";
 import { ReportToolbar } from "@/components/ReportToolbar";
@@ -7,6 +8,7 @@ import { Home } from "@/components/Home";
 import { NewReportDialog, type NewReportPrefill } from "@/components/NewReportDialog";
 import { AuditDialog } from "@/components/AuditDialog";
 import { MetaPanel } from "@/components/MetaPanel";
+import { CwvPanel } from "@/components/CwvPanel";
 import { FindingsBoard } from "@/components/FindingsBoard";
 import { ListPanel } from "@/components/ListPanel";
 import { SectionsPanel } from "@/components/SectionsPanel";
@@ -19,7 +21,8 @@ import { api } from "@/lib/api";
 import { LANG_LABEL, counts, edit, paths } from "@/lib/report";
 import { hostOf, useAudits } from "@/lib/audits";
 import { useTranslateSettings } from "@/lib/settings";
-import type { AuditJob, Doc, FieldStatus, Health, Lang, Report, ReportSummary } from "@/lib/types";
+import { EXPRESS_COUNT, expressFindings } from "@/lib/types";
+import type { AuditJob, Doc, Edition, FieldStatus, Health, Lang, Report, ReportSummary } from "@/lib/types";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -219,19 +222,19 @@ export default function App() {
     [doc, slug, dirty, settings.provider, settings.apiKey, health?.hasEnvKey]
   );
 
-  const render = useCallback(async () => {
+  const render = useCallback(async (edition: Edition = "full") => {
     if (!doc || !slug) return;
     if (dirty) {
       toast.error("Save before rendering — the PDF is generated from the file on disk.");
       return;
     }
     setBusy(true);
-    const t = toast.loading(`Rendering ${LANG_LABEL[lang]} PDF…`);
+    const t = toast.loading(`Rendering ${edition === "express" ? "express " : ""}${LANG_LABEL[lang]} PDF…`);
     try {
       // The language on screen, not --all: --all only picks up languages whose
       // summary is translated, so a half-translated tab would silently render
       // as English.
-      const out = await api.render(slug, [lang]);
+      const out = await api.render(slug, [lang], edition);
       if (out.code === 0) {
         // stderr carries the "falling back to English for missing strings" warning.
         const description = [out.stdout.trim(), out.stderr.trim()].filter(Boolean).join("\n");
@@ -247,6 +250,20 @@ export default function App() {
   }, [doc, slug, dirty, lang]);
 
   const findingCounts = useMemo(() => counts(report?.findings ?? []), [report?.findings]);
+  const expressIds = useMemo(() => (report ? expressFindings(report).map((f) => f.id) : []), [report]);
+
+  /**
+   * Adds a finding to the express report or takes it out. The first toggle
+   * starts from the automatic pick, so ticking one more keeps the other five.
+   * Taking out the last one goes back to the automatic pick.
+   */
+  const toggleExpress = (id: string) =>
+    update((d) => {
+      const current = expressFindings(d).map((f) => f.id);
+      const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+      if (next.length) d.express = { findings: next };
+      else delete d.express;
+    });
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -350,18 +367,76 @@ export default function App() {
                       Show closing note at the end of the report
                     </label>
                   </div>
+                  <I18nField
+                    label="Express audit note"
+                    multiline
+                    rows={2}
+                    value={report!.expressNote}
+                    onChange={(v) => update((d) => void (d.expressNote = v), paths.expressNote())}
+                    lang={lang}
+                    sourceLang={source}
+                    status={report!.expressNote ? statusOf(paths.expressNote()) : undefined}
+                    placeholder="Empty: “This express report shows {shown} of the {total} issues the audit found. The full audit covers every issue…” {shown} and {total} become the counts."
+                    disabled={translating !== null}
+                  />
                 </div>
               </Section>
 
+              <Section title="Core Web Vitals & Lighthouse">
+                <CwvPanel
+                  cwv={report!.metrics?.coreWebVitals}
+                  disabled={translating !== null}
+                  onChange={(cwv) =>
+                    update((d) => {
+                      if (cwv) d.metrics = { ...d.metrics, coreWebVitals: cwv };
+                      else if (d.metrics) {
+                        delete d.metrics.coreWebVitals;
+                        if (!Object.keys(d.metrics).length) delete d.metrics;
+                      }
+                    })
+                  }
+                />
+              </Section>
+
               <Section title="Findings">
+                <p className="mb-3 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                  <Zap className="size-3 fill-current text-sev-warning" />
+                  {report!.express?.findings?.length ? (
+                    <>
+                      The express report shows the {expressIds.length} picked by hand.
+                      <button
+                        className="underline underline-offset-2 hover:text-foreground"
+                        onClick={() => update((d) => void delete d.express)}
+                      >
+                        Back to the automatic top {EXPRESS_COUNT}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      The express report shows the top {EXPRESS_COUNT} by severity and impact. Click ⚡ on a
+                      finding to pick your own.
+                    </>
+                  )}
+                </p>
                 <FindingsBoard
                   findings={report!.findings}
                   lang={lang}
                   sourceLang={source}
                   statusOf={statusOf}
                   disabled={translating !== null}
-                  onChange={(findings) => update((d) => void (d.findings = findings))}
+                  onChange={(findings) =>
+                    update((d) => {
+                      d.findings = findings;
+                      // A deleted finding, or one dragged to Passing, cannot stay in the express pick.
+                      const open = new Set(findings.filter((f) => f.severity !== "pass").map((f) => f.id));
+                      const kept = d.express?.findings?.filter((id) => open.has(id));
+                      if (kept?.length) d.express = { findings: kept };
+                      else delete d.express;
+                    })
+                  }
                   onMoved={(m) => toast.info(m)}
+                  express={expressIds}
+                  onToggleExpress={toggleExpress}
                 />
               </Section>
 

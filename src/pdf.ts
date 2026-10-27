@@ -2,7 +2,7 @@ import puppeteer, { type Page } from "puppeteer";
 import { PDFDocument } from "pdf-lib";
 import { renderCover, renderBody, runningTemplates, BODY_MARGIN_MM } from "./render.ts";
 import { loadBrand } from "./brand.ts";
-import type { Lang, Report } from "./types.ts";
+import type { Edition, Lang, Report } from "./types.ts";
 
 const A4 = { format: "A4" } as const;
 
@@ -17,7 +17,7 @@ const A4 = { format: "A4" } as const;
  * Page numbers therefore count body pages only, which is also the correct
  * print convention: a cover is never folio'd.
  */
-export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
+export async function renderPdf(report: Report, lang: Lang, edition: Edition = "full"): Promise<Buffer> {
   const browser = await puppeteer.launch({
     headless: true,
     args: ["--font-render-hinting=none"],
@@ -26,7 +26,7 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
   try {
     const page = await browser.newPage();
 
-    await page.setContent(renderCover(report, lang), { waitUntil: "load" });
+    await page.setContent(renderCover(report, lang, undefined, edition), { waitUntil: "load" });
     await fontsReady(page);
     const coverPdf = await page.pdf({
       ...A4,
@@ -34,8 +34,8 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
       margin: { top: 0, right: 0, bottom: 0, left: 0 },
     });
 
-    const { header, footer } = runningTemplates(report, lang);
-    await page.setContent(renderBody(report, lang), { waitUntil: "load" });
+    const { header, footer } = runningTemplates(report, lang, undefined, edition);
+    await page.setContent(renderBody(report, lang, undefined, edition), { waitUntil: "load" });
     await fontsReady(page);
     const bodyPdf = await page.pdf({
       ...A4,
@@ -46,7 +46,7 @@ export async function renderPdf(report: Report, lang: Lang): Promise<Buffer> {
       margin: { top: `${BODY_MARGIN_MM.top}mm`, right: 0, bottom: `${BODY_MARGIN_MM.bottom}mm`, left: 0 },
     });
 
-    return await merge([coverPdf, bodyPdf], report, lang);
+    return await merge([coverPdf, bodyPdf], report, lang, edition);
   } finally {
     await browser.close();
   }
@@ -61,7 +61,7 @@ async function fontsReady(page: Page): Promise<void> {
   await page.evaluate("document.fonts.ready.then(() => true)");
 }
 
-async function merge(parts: Uint8Array[], report: Report, lang: Lang): Promise<Buffer> {
+async function merge(parts: Uint8Array[], report: Report, lang: Lang, edition: Edition): Promise<Buffer> {
   const out = await PDFDocument.create();
 
   for (const part of parts) {
@@ -75,7 +75,8 @@ async function merge(parts: Uint8Array[], report: Report, lang: Lang): Promise<B
   const { name } = loadBrand();
   const { site, clientName, auditedAt, scope, pageUrl } = report.meta;
   const target = scope === "page" && pageUrl ? pageUrl : site;
-  out.setTitle(`SEO ${scope === "page" ? "Page Audit" : "Audit"} — ${target} (${lang.toUpperCase()})`);
+  const kind = edition === "express" ? "Express Audit" : scope === "page" ? "Page Audit" : "Audit";
+  out.setTitle(`SEO ${kind} — ${target} (${lang.toUpperCase()})`);
   out.setAuthor(name);
   out.setCreator(name);
   out.setProducer(name);

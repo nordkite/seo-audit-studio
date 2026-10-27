@@ -14,6 +14,8 @@ export const ANCHORS = ["summary", "breakdown", "findings", "roadmap", "notCover
 export const LEVELS = ["high", "medium", "low"] as const;
 /** What was audited: a whole site (`/new-audit`) or one URL (`/new-page-audit`). */
 export const SCOPES = ["site", "page"] as const;
+/** `full` is the paid report; `express` the free excerpt (see express.ts). */
+export const EDITIONS = ["full", "express"] as const;
 /** Measured-data sources an audit may draw on, in the order the report lists them. */
 export const DATA_SOURCES = ["searchConsole", "analytics", "crux", "pagespeed"] as const;
 /**
@@ -36,6 +38,7 @@ export type SourceStatus = (typeof SOURCE_STATUSES)[number];
 export type Category = (typeof CATEGORIES)[number];
 export type LighthouseScore = (typeof LIGHTHOUSE)[number];
 export type AuditScope = (typeof SCOPES)[number];
+export type Edition = (typeof EDITIONS)[number];
 export type Severity = (typeof SEVERITIES)[number];
 export type Anchor = (typeof ANCHORS)[number];
 export type Level = (typeof LEVELS)[number];
@@ -129,12 +132,20 @@ export interface Report {
   closingNote?: I18n;
   /** Drops that line entirely, custom or default. */
   hideClosingNote?: boolean;
+  /**
+   * The express edition's last note, before the closing box. `{shown}` and
+   * `{total}` are replaced with the finding counts. Left out: a default that
+   * says how many issues were found and what the full audit adds.
+   */
+  expressNote?: I18n;
   findings: Finding[];
   /** claude-seo's per-category scores, 0–100. Numbers only; labels come from i18n. */
   scores?: Partial<Record<Category, number>>;
   roadmap?: ListItem[];
   notCovered?: ListItem[];
   sections?: Section[];
+  /** What the express edition shows. See express.ts. */
+  express?: { findings?: string[] };
   metrics?: {
     searchConsole?: SearchConsoleMetrics;
     coreWebVitals?: CoreWebVitalsMetrics;

@@ -129,6 +129,7 @@ export const paths = {
   summary: () => "summary",
   method: () => "method",
   closingNote: () => "closingNote",
+  expressNote: () => "expressNote",
   item: (coll: string, id: string, field: string) => `${coll}.${id}.${field}`,
   image: (id: string, field: string) => `sections.${id}.image.${field}`,
 };

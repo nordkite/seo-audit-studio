@@ -25,6 +25,9 @@ interface Props {
   statusOf: (path: string) => FieldStatus | undefined;
   onChange: (next: Finding[]) => void;
   onMoved: (message: string) => void;
+  /** Ids the express report shows, picked by hand or automatically. */
+  express: string[];
+  onToggleExpress: (id: string) => void;
   disabled?: boolean;
 }
 
@@ -64,6 +67,8 @@ export function FindingsBoard({
   statusOf,
   onChange,
   onMoved,
+  express,
+  onToggleExpress,
   disabled,
 }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -137,6 +142,8 @@ export function FindingsBoard({
                       onChange(findings.map((x) => (x.id === f.id ? next : x)))
                     }
                     onDelete={() => onChange(findings.filter((x) => x.id !== f.id))}
+                    inExpress={express.includes(f.id)}
+                    onToggleExpress={f.severity === "pass" ? undefined : () => onToggleExpress(f.id)}
                   />
                 ))}
               </SortableContext>

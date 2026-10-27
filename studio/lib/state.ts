@@ -70,6 +70,7 @@ export function* translatableFields(report: Report): Generator<Field> {
   if (isI18n(report.summary)) yield { path: "summary", node: report.summary };
   if (isI18n(report.method)) yield { path: "method", node: report.method };
   if (isI18n(report.closingNote)) yield { path: "closingNote", node: report.closingNote };
+  if (isI18n(report.expressNote)) yield { path: "expressNote", node: report.expressNote };
 
   for (const coll of COLLECTIONS) {
     const items: Item[] | undefined = report[coll];

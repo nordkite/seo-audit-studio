@@ -284,15 +284,17 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
       report,
       part = "body",
       theme,
-    }: { report: Report; part?: string; theme?: BrandTheme } = await readBody(req);
+      edition,
+    }: { report: Report; part?: string; theme?: BrandTheme; edition?: string } = await readBody(req);
+    const ed = edition === "express" ? "express" : "full";
     const brand = theme ? brandWith(theme).brand : undefined;
     // The PDF gets its top and bottom space from page.pdf()'s margins, which an
     // iframe never sees. Give the body the same space so the preview's first
     // and last lines sit where they will on paper. The cover bleeds; no padding.
     const html =
       part === "cover"
-        ? renderCover(report, lang, brand)
-        : renderBody(report, lang, brand).replace(
+        ? renderCover(report, lang, brand, ed)
+        : renderBody(report, lang, brand, ed).replace(
             "</head>",
             `<style>body { padding: ${BODY_MARGIN_MM.top}mm 0 ${BODY_MARGIN_MM.bottom}mm; }</style></head>`
           );
@@ -315,11 +317,12 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
 
   if (seg[0] === "api" && seg[1] === "render" && seg[2] && req.method === "POST") {
     const slug = assertSlug(seg[2]);
-    const { langs = [] }: { langs?: unknown[] } = await readBody(req);
+    const { langs = [], edition }: { langs?: unknown[]; edition?: string } = await readBody(req);
     const args = [
       "src/generate.ts",
       slug,
       ...(langs.length ? langs.flatMap((l) => ["--lang", assertLang(l)]) : ["--all"]),
+      ...(edition === "express" ? ["--express"] : []),
     ];
     const out = await run(process.execPath, args);
     return json(res, out.code === 0 ? 200 : 500, out);

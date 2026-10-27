@@ -154,8 +154,17 @@ npm run report -- <slug> --lang et --lang ru
 npm run report -- <slug> --all              # every translated language
 npm run report -- <slug> -o ~/Desktop       # custom output dir
 npm run report -- <slug> --html             # also emit intermediate HTML
+npm run report -- <slug> --express          # the short free excerpt (see below)
 npm run report -- --help
 ```
+
+**Express edition.** `--express` renders a free excerpt of the same report, as
+a lead magnet for the paid one: the cover with the full issue counts, the
+summary, scores and measured data, then only the key findings. Custom
+sections and the closing note appear in both editions; the roadmap stays in
+the full report. The key findings are the
+top 5 by severity and impact unless you pick them with ⚡ in the Studio, whose
+preview and Render PDF button switch between Full and Express.
 
 `<slug>` resolves to `reports/<slug>.json`, or pass a path to any JSON file.
 

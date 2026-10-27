@@ -86,7 +86,8 @@ them. Run `npm run typecheck` after changing either.
 - `/new-page-audit <url>` — audit one page with claude-seo's `seo-page`, write
   `reports/<site-slug>--<page-slug>.json` (`meta.scope: "page"`)
 - `/translate-report <slug> all` — fill `et`/`ru`, cached into the same file
-- `/seo-report <slug> --all` — render PDFs to `out/`
+- `/seo-report <slug> --all` — render PDFs to `out/`; `--express` renders the
+  free excerpt of the same report instead (`src/express.ts`)
 - `npm run studio` — Report Studio, a local editor for the same JSON
 - `npm run typecheck` — both tsconfigs
 
@@ -103,7 +104,8 @@ them. Run `npm run typecheck` after changing either.
 | `src/types.ts` | report schema and its constants (langs, severities, anchors) |
 | `src/brand.ts` | loads and validates `brand/brand.json` |
 | `src/theme.ts` | cover/body surface colors and logo choice. No Node imports, so the Studio client shares it |
-| `src/render.ts` | `(report, lang)` → HTML |
+| `src/render.ts` | `(report, lang, edition)` → HTML |
+| `src/express.ts` | which findings the express edition shows. No Node imports, so the Studio client shares it |
 | `src/pdf.ts` | HTML → PDF, two-pass cover+body merge |
 | `src/validate.ts` | report rules, shared by the CLI and the Studio |
 | `src/generate.ts` | CLI |

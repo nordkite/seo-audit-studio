@@ -645,6 +645,14 @@ code,
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Express edition ------------------------------------------------------ */
+
+/* Its last note, set apart from the section above it. */
+.expressnote {
+  margin-top: 8mm;
+  break-inside: avoid;
+}
+
 /* --- Measured data (Search Console, Core Web Vitals) --------------------- */
 
 /* Small enough to always fit a page; keeping it whole stops the heading from
