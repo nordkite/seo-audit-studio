@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — 2026-10-26
+## 1.1.0 — 2026-10-28
 
 ### Added
 
@@ -42,9 +42,19 @@
 - **Core Web Vitals and Lighthouse scores can be edited in the Studio**: the
   device, field or lab source, measured URL, LCP, INP, CLS and the four
   Lighthouse scores. Scores outside 0–100 fail validation.
+- **The New report dialog warns before an audit replaces a report.** It names
+  the existing report of the same site, the same language versions or the same
+  page, and says that a copy is kept in `.studio-backups/`.
 
 ### Fixed
 
+- **A page audit from the Studio now backs up the report it replaces.** Only
+  site audits did, so a repeated page audit could overwrite its earlier report,
+  edits and translations included, with no copy left.
+- **Finding titles keep most of the card's width.** Impact and effort used to
+  take a fixed share of the heading row and squeeze a long title into a narrow
+  column. The title now keeps at least 65% of the row, and the two meters stack
+  when they do not fit side by side.
 - **claude-seo's working files no longer land in the repo root.** Its audit
   writes findings, page renders and screenshots to `{domain}-audit/` in the
   current folder, and the audit commands never said where that should be, so a
@@ -89,7 +99,7 @@
 3. `npm run doctor`
 
 Existing reports render unchanged. Render their PDFs again to get the new page
-breaks. Reports audited before 1.1.0 may compare the site with competitors
+breaks and finding headings. Reports audited before 1.1.0 may compare the site with competitors
 from US search results: check those findings against the site's own Google
 domain before sending them.
 
