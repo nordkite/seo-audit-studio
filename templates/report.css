@@ -969,6 +969,8 @@ code,
 }
 
 .finding__head h3 {
+  flex: 1 1 65%;
+  min-width: 65%;
   padding-top: 0.6mm;
 }
 
@@ -980,9 +982,12 @@ code,
 
 /* Impact and effort, as three-step meters. */
 .levels {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
-  gap: 4mm;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 1.2mm 4mm;
   padding-top: 1mm;
 }
 
