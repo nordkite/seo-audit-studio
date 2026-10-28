@@ -8,7 +8,7 @@ import type { Report } from "../../src/types.ts";
 import { ROOT, backup, httpError, reportPath, writeReport } from "./store.ts";
 import { keepAwake } from "./keep-awake.ts";
 import { CLAUDE_BIN } from "./translate/cli.ts";
-import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditStep, type DoctorCheck, type Preflight, type SiteLanguages } from "./types.ts";
+import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditStep, type DoctorCheck, type ExistingReport, type Preflight, type SiteLanguages } from "./types.ts";
 
 /**
  * Run `/new-audit` or `/new-page-audit` from the Studio.
@@ -99,6 +99,52 @@ function languageCodes(raw: unknown): string[] {
   return codes;
 }
 
+/** A page by host (without www) and path (without the trailing slash). */
+function pageKey(raw: string): string {
+  const u = new URL(raw);
+  return `${u.hostname.replace(/^www\./, "")}${u.pathname.replace(/\/+$/, "")}`;
+}
+
+/**
+ * The report this audit would overwrite. A site report's slug follows from the
+ * URL, as /new-audit names it. A page report's slug is the agent's call (it
+ * may drop a language prefix), so it is found by the `pageUrl` it covers.
+ */
+function findExisting(url: string, scope: "site" | "page", languages: string[]): ExistingReport | null {
+  if (!existsSync(REPORTS)) return null;
+  const host = new URL(url).hostname.replace(/^www\./, "").replace(/[^a-z0-9]+/g, "-");
+  const target = scope === "site" ? (languages.length ? `${host}--${languages.join("-")}` : host) : null;
+  const key = pageKey(url);
+  for (const f of readdirSync(REPORTS).filter((f) => f.endsWith(".json"))) {
+    const slug = f.replace(/\.json$/, "");
+    if (target && slug !== target) continue;
+    let report: Partial<Report>;
+    try {
+      report = JSON.parse(readFileSync(join(REPORTS, f), "utf8"));
+    } catch {
+      if (target) return { slug, clientName: "", auditedAt: null };
+      continue;
+    }
+    const meta = report.meta;
+    if (!target) {
+      if (meta?.scope !== "page" || !meta.pageUrl) continue;
+      try {
+        if (pageKey(meta.pageUrl) !== key) continue;
+      } catch {
+        continue;
+      }
+    }
+    return { slug, clientName: meta?.clientName ?? "", auditedAt: meta?.auditedAt ?? null };
+  }
+  return null;
+}
+
+/** For the New report dialog: what starting this audit would replace. */
+export function existingReport(raw: unknown, scopeRaw: unknown, languagesRaw: unknown): ExistingReport | null {
+  const scope = scopeRaw === "page" ? "page" : "site";
+  return findExisting(normalizeUrl(raw), scope, scope === "site" ? languageCodes(languagesRaw) : []);
+}
+
 function reportMtimes(): Map<string, number> {
   if (!existsSync(REPORTS)) return new Map();
   return new Map(
@@ -185,15 +231,12 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
   addJob(job);
 
   // The agent writes the report file directly, past the Studio's own backups,
-  // and /new-audit overwrites a report of the same site without asking. Keep
-  // a copy of the one it is most likely to replace.
-  if (scope === "site") {
-    const host = new URL(url).hostname.replace(/^www\./, "").replace(/[^a-z0-9]+/g, "-");
-    const slug = languages.length ? `${host}--${languages.join("-")}` : host;
-    if (existsSync(reportPath(slug))) {
-      backup(reportPath(slug), slug);
-      step(job, `Backed up the existing reports/${slug}.json to .studio-backups/${slug}/`);
-    }
+  // and nobody is there to answer if it asks before overwriting. Keep a copy
+  // of the one it is most likely to replace.
+  const existing = findExisting(url, scope, languages);
+  if (existing) {
+    backup(reportPath(existing.slug), existing.slug);
+    step(job, `Backed up the existing reports/${existing.slug}.json to .studio-backups/${existing.slug}/`);
   }
 
   const prompt = `/${COMMAND[scope]} ${url}${languages.length ? ` --languages ${languages.join(",")}` : ""}`;

@@ -15,7 +15,7 @@ import {
 import { api } from "@/lib/api";
 import { guessScope, hostOf } from "@/lib/audits";
 import { cn } from "@/lib/utils";
-import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditScope, type Preflight, type SiteLanguages } from "@/lib/types";
+import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditScope, type ExistingReport, type Preflight, type SiteLanguages } from "@/lib/types";
 
 export interface NewReportPrefill {
   url?: string;
@@ -72,6 +72,9 @@ function AuditForm({
   const versions = langs.site?.unsupported ? [] : (langs.site?.versions ?? []);
   const choosable = versions.length > 1;
   const chosen = versions.map((v) => v.langs[0]).filter((id) => !skipped.has(id));
+  const languages = scope === "site" && choosable && skipped.size ? chosen : undefined;
+  const existing = useExistingReport(url, scope, languages);
+  const details = [existing?.clientName, existing?.auditedAt && `audited ${existing.auditedAt}`].filter(Boolean);
 
   useEffect(() => {
     api
@@ -88,7 +91,6 @@ function AuditForm({
   const start = async () => {
     setBusy(true);
     try {
-      const languages = scope === "site" && choosable && skipped.size ? chosen : undefined;
       onStarted(await api.startAudit({ url, scope, clientName, languages, ...runRequest(run) }));
     } catch (e) {
       toast.error((e as Error).message, { duration: 10000 });
@@ -196,6 +198,19 @@ function AuditForm({
         ))}
       </div>
 
+      {existing && (
+        <div className="flex gap-1.5 border border-sev-warning/50 p-2.5 text-xs text-sev-warning">
+          <AlertTriangle className="mt-px size-3.5 shrink-0" />
+          <span>
+            {scope === "page" ? "This page" : languages ? "These language versions" : "This site"} already has a
+            report: <span className="font-mono">reports/{existing.slug}.json</span>
+            {details.length > 0 && ` (${details.join(", ")})`}. The new audit replaces it, edits and
+            translations included. A copy is kept in{" "}
+            <span className="font-mono">.studio-backups/{existing.slug}/</span>.
+          </span>
+        </div>
+      )}
+
       <p className="text-xs text-muted-foreground">
         Runs on your Claude Code login and takes 10–30 minutes. The Studio keeps the computer
         awake while it runs, but closing a laptop lid still puts it to sleep.
@@ -253,6 +268,28 @@ function useSiteLanguages(url: string): LanguagesState {
     };
   }, [url]);
   return state;
+}
+
+/** The report this audit would overwrite, checked once the inputs have stopped changing. */
+function useExistingReport(url: string, scope: AuditScope, languages?: string[]): ExistingReport | null {
+  const [report, setReport] = useState<ExistingReport | null>(null);
+  const langKey = languages?.join(",") ?? "";
+  useEffect(() => {
+    setReport(null);
+    if (!url.trim()) return;
+    let live = true;
+    const t = setTimeout(() => {
+      api
+        .existingReport(url.trim(), scope, langKey ? langKey.split(",") : undefined)
+        .then((r) => live && setReport(r.report))
+        .catch(() => live && setReport(null)); // a half-typed URL: nothing to warn about yet
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [url, scope, langKey]);
+  return report;
 }
 
 const languageName = (code: string) => {

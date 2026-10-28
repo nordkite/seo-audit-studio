@@ -195,6 +195,10 @@ person would type, so the method stays in the command files and claude-seo.
 - One audit at a time. Jobs live in memory; a Studio restart stops and forgets a
   running one. Raw logs go to `.studio-audits/` (git-ignored).
 - Success means a new or changed `reports/*.json` that passes `validate()`.
+- The dialog warns when the audit would replace a report (`/api/audits/existing`),
+  and the run backs that report up first. A site report is found by its slug,
+  which follows from the URL. A page report is found by `meta.pageUrl`, because
+  the agent picks the page slug.
 - The dialog can set the run's model and effort (`--model`, `--effort`; left
   out, the user's own Claude Code settings) and put every subagent on Sonnet.
   claude-seo's agent files name their own models, so that last one needs

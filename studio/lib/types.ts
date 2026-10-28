@@ -157,6 +157,13 @@ export interface AuditRequest {
   languages?: string[];
 }
 
+/** GET /api/audits/existing: the report an audit with these settings would replace. */
+export interface ExistingReport {
+  slug: string;
+  clientName: string;
+  auditedAt: string | null;
+}
+
 /** One language version, from scripts/site-languages.ts. */
 export interface LanguageVersion {
   langs: string[];

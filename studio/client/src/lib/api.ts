@@ -1,10 +1,12 @@
 import type {
   AuditJob,
   AuditRequest,
+  AuditScope,
   BrandDoc,
   BrandTheme,
   Doc,
   Edition,
+  ExistingReport,
   Health,
   Lang,
   ModelsResult,
@@ -125,6 +127,12 @@ export const api = {
   /** The site's language versions, so a site audit can cover only some of them. */
   siteLanguages: (url: string) =>
     fetch(`/api/audits/languages?url=${encodeURIComponent(url)}`).then((r) => unwrap<SiteLanguages>(r)),
+
+  /** The report an audit with these settings would replace, if there is one. */
+  existingReport: (url: string, scope: AuditScope, languages?: string[]) =>
+    fetch(
+      `/api/audits/existing?${new URLSearchParams({ url, scope, ...(languages ? { languages: languages.join(",") } : {}) })}`
+    ).then((r) => unwrap<{ report: ExistingReport | null }>(r)),
 
   startAudit: (body: AuditRequest) => post("/api/audits", body).then((r) => unwrap<AuditJob>(r)),
 

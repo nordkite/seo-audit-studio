@@ -20,7 +20,7 @@ import {
   skeleton,
 } from "./lib/store.ts";
 import { listModels, translateReport } from "./lib/translate/index.ts";
-import { cancelAudit, killChild, listJobs, preflight, resumeAudit, siteLanguages, startAudit } from "./lib/audit.ts";
+import { cancelAudit, existingReport, killChild, listJobs, preflight, resumeAudit, siteLanguages, startAudit } from "./lib/audit.ts";
 import { DEFAULT_MODEL } from "./lib/translate/anthropic.ts";
 import type { BrandDoc, Health, TranslateEvent } from "./lib/types.ts";
 
@@ -250,6 +250,15 @@ async function route(req: IncomingMessage, res: ServerResponse, url: URL) {
   if (p === "/api/audits" && req.method === "GET") return json(res, 200, { jobs: listJobs() });
   if (p === "/api/audits/languages" && req.method === "GET") {
     return json(res, 200, await siteLanguages(url.searchParams.get("url")));
+  }
+  if (p === "/api/audits/existing" && req.method === "GET") {
+    const languages = url.searchParams.get("languages");
+    const report = existingReport(
+      url.searchParams.get("url"),
+      url.searchParams.get("scope"),
+      languages ? languages.split(",") : undefined
+    );
+    return json(res, 200, { report });
   }
   if (p === "/api/audits" && req.method === "POST") {
     return json(res, 202, await startAudit(await readBody(req)));
