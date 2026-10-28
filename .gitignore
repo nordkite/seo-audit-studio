@@ -9,6 +9,12 @@ studio/client/dist/
 brand/
 .studio-audits/
 
+# claude-seo's working files for an audit: a client's pages, renders and
+# screenshots. The audit commands put them in .audit-work/; the second line
+# catches a run that left them in the root, as claude-seo does by default.
+.audit-work/
+*-audit/
+
 # Your clients' audits and their images. No report is tracked.
 reports/*
 assets/*

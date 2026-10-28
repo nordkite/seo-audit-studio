@@ -45,6 +45,11 @@
 
 ### Fixed
 
+- **claude-seo's working files no longer land in the repo root.** Its audit
+  writes findings, page renders and screenshots to `{domain}-audit/` in the
+  current folder, and the audit commands never said where that should be, so a
+  run could leave a client's pages beside the code. They now go in
+  `.audit-work/`, and `.gitignore` covers both that and a stray `*-audit/`.
 - **`check-social.ts` output was cut off at 64 KB on macOS** when piped, so a
   large site's results reached the audit as broken JSON.
 - **`check-social.ts` reads sitemaps with an ordinary user agent.** Some sites

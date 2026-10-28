@@ -41,6 +41,12 @@ apart is what lets claude-seo update without touching anything here.
      repo's supplements for claude-seo's gaps. Steps 1 and 2 follow it.
    - With `--languages`, set up the [Language scope](#language-scope) now,
      before anything is crawled.
+   - **Working files go in `.audit-work/`.** claude-seo writes its findings,
+     renders and screenshots to `{domain}-audit/` in the current folder, which
+     is this repo's root. Put that folder under `.audit-work/` instead
+     (`.audit-work/{domain}-audit/`), and tell every subagent the same path.
+     It is git-ignored: it holds a client's pages, and this repo tracks no
+     client data.
 
 1. **Run the claude-seo audit.** Use the claude-seo plugin's audit (the `/seo audit
    <url>` flow) for the methodology and the parallel subagents. Two overrides:

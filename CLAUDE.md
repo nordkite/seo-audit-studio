@@ -97,6 +97,7 @@ them. Run `npm run typecheck` after changing either.
 |---|---|
 | `reports/*.json` | audit data, the source of truth |
 | `assets/<slug>/` | images used by custom sections |
+| `.audit-work/` | claude-seo's working files during an audit (findings, renders, screenshots). Git-ignored client data; safe to delete once the report is written |
 | `i18n/{en,et,ru}.json` | report chrome — labels, section titles, score bands |
 | `i18n/glossary.json` | terms that must never be translated |
 | `i18n/translation-rules.md` | the translation prompt, shared by the slash command and the Studio |
