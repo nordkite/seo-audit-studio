@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.0 — 2026-11-12
+
+### Added
+
+- **Context for the auditor.** The Studio's New report dialog has an optional
+  field for notes on the site: target markets and keywords, competitors, recent
+  migrations, sections to focus on or leave out. On the command line it is
+  `/new-audit <url> --context <file>` or `/new-page-audit <url> --context
+  <file>`. The notes steer where the audit looks harder and how findings and
+  the roadmap are ordered. They are never used as evidence, so a finding still
+  needs proof from the site itself, and a check skipped at the client's request
+  is listed under "Not covered". The notes never appear in the report. The
+  Studio saves them to `.audit-work/context/` (git-ignored), limits them
+  to 4,000 characters, and keeps them for Resume and Retry.
+
 ## 1.1.0 — 2026-10-28
 
 ### Added
