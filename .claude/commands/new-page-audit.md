@@ -1,6 +1,6 @@
 ---
 description: Audit a single page with claude-seo's seo-page and write it out as structured report JSON ready for PDF generation.
-argument-hint: <page-url> [client name]
+argument-hint: <page-url> [--context <file>] [client name]
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Skill, Agent
 ---
 
@@ -8,8 +8,10 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, WebFetch, Skill, Agent
 
 Audit one URL and emit `reports/<slug>.json`. Arguments: `$ARGUMENTS`
 
-The first argument is the URL. Everything after it, verbatim, is
-`meta.clientName`, exactly as in `/new-audit`.
+The first argument is the URL. If the next one is `--context` followed by a
+file path, read it and follow `/new-audit`'s
+[Auditor context](new-audit.md#auditor-context) rules. Everything after that,
+verbatim, is `meta.clientName`, exactly as in `/new-audit`.
 
 This is the single-page counterpart of `/new-audit`. Read
 [new-audit.md](new-audit.md) first: its preflight, severity mapping, evidence

@@ -215,6 +215,12 @@ person would type, so the method stays in the command files and claude-seo.
   that language is. Never assume the root is any particular language.
   Afterwards the Studio writes `meta.languages` and lists findings whose
   evidence points outside the chosen versions.
+- The dialog takes optional notes for the auditor. The run writes them to
+  `.audit-work/context/<job-id>.md` and passes `--context <file>`. They
+  never go in the prompt text, because the command reads everything after
+  its flags as the client name. The command files' "Auditor context" section
+  sets the rules: the notes steer the audit, are never evidence, and never
+  appear in the report.
 - `keep-awake.ts` blocks idle sleep for the run's PID with `caffeinate`,
   `SetThreadExecutionState` or `systemd-inhibit`. None of them stop lid-close
   sleep. When it fails, the UI warns instead.

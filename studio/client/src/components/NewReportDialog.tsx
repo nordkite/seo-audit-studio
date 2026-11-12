@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Loader2, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -15,7 +16,7 @@ import {
 import { api } from "@/lib/api";
 import { guessScope, hostOf } from "@/lib/audits";
 import { cn } from "@/lib/utils";
-import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditScope, type ExistingReport, type Preflight, type SiteLanguages } from "@/lib/types";
+import { AUDIT_MODELS, EFFORTS, MAX_AUDIT_CONTEXT, type AuditJob, type AuditRequest, type AuditScope, type ExistingReport, type Preflight, type SiteLanguages } from "@/lib/types";
 
 export interface NewReportPrefill {
   url?: string;
@@ -58,6 +59,8 @@ function AuditForm({
 }) {
   const [url, setUrl] = useState(prefill?.url ?? "");
   const [clientName, setClientName] = useState(prefill?.clientName ?? "");
+  const [context, setContext] = useState("");
+  const contextTooLong = context.trim().length > MAX_AUDIT_CONTEXT;
   // Follows the URL until the user picks one themselves.
   const [scope, setScope] = useState<AuditScope>(() => guessScope(prefill?.url ?? ""));
   const [scopeTouched, setScopeTouched] = useState(false);
@@ -91,7 +94,16 @@ function AuditForm({
   const start = async () => {
     setBusy(true);
     try {
-      onStarted(await api.startAudit({ url, scope, clientName, languages, ...runRequest(run) }));
+      onStarted(
+        await api.startAudit({
+          url,
+          scope,
+          clientName,
+          languages,
+          ...(context.trim() ? { context: context.trim() } : {}),
+          ...runRequest(run),
+        })
+      );
     } catch (e) {
       toast.error((e as Error).message, { duration: 10000 });
     } finally {
@@ -168,6 +180,23 @@ function AuditForm({
         />
       </div>
 
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Context for the auditor (optional)</Label>
+        <Textarea
+          value={context}
+          onChange={(e) => setContext(e.target.value)}
+          placeholder={"Target market: Estonia, B2B. Main competitor: example.ee.\nMigrated from WordPress in March; /blog is being retired."}
+          className="max-h-40 text-xs md:text-xs"
+          aria-invalid={contextTooLong || undefined}
+        />
+        <p className={cn("text-xs text-muted-foreground", contextTooLong && "text-destructive")}>
+          Steers what the audit looks at and how findings are ranked. It is never used as evidence and does not
+          appear in the report.
+          {context.trim().length > MAX_AUDIT_CONTEXT * 0.8 &&
+            ` ${context.trim().length} / ${MAX_AUDIT_CONTEXT} characters.`}
+        </p>
+      </div>
+
       <div className="space-y-1.5 border p-2.5 text-xs">
         {!preflight ? (
           <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -225,6 +254,7 @@ function AuditForm({
           disabled={
             busy ||
             !url.trim() ||
+            contextTooLong ||
             !preflight?.ok ||
             auditRunning ||
             (scope === "site" && (langs.loading || (choosable && !chosen.length)))

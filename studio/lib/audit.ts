@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { validate } from "../../src/validate.ts";
 import { detectLanguages, pick, versionOf } from "../../scripts/site-languages.ts";
@@ -8,7 +8,7 @@ import type { Report } from "../../src/types.ts";
 import { ROOT, backup, httpError, reportPath, writeReport } from "./store.ts";
 import { keepAwake } from "./keep-awake.ts";
 import { CLAUDE_BIN } from "./translate/cli.ts";
-import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditStep, type DoctorCheck, type ExistingReport, type Preflight, type SiteLanguages } from "./types.ts";
+import { AUDIT_MODELS, EFFORTS, MAX_AUDIT_CONTEXT, type AuditJob, type AuditRequest, type AuditStep, type DoctorCheck, type ExistingReport, type Preflight, type SiteLanguages } from "./types.ts";
 
 /**
  * Run `/new-audit` or `/new-page-audit` from the Studio.
@@ -25,6 +25,8 @@ import { AUDIT_MODELS, EFFORTS, type AuditJob, type AuditRequest, type AuditStep
 
 const LOGS = join(ROOT, ".studio-audits");
 const REPORTS = join(ROOT, "reports");
+/** Auditor notes, one file per job. Under .audit-work/, so git-ignored like the rest of a client's data. */
+const CONTEXT = join(ROOT, ".audit-work", "context");
 const MAX_STEPS = 400;
 const KEEP_JOBS = 10;
 
@@ -195,6 +197,10 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
   // into the report, so it goes on the cover exactly as typed.
   const clientName = String(req.clientName ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, 120);
   const languages = scope === "site" ? languageCodes(req.languages) : [];
+  const context = String(req.context ?? "").replace(/\r\n?/g, "\n").trim();
+  if (context.length > MAX_AUDIT_CONTEXT) {
+    throw httpError(400, `Context is ${context.length} characters; the limit is ${MAX_AUDIT_CONTEXT}.`);
+  }
 
   // Checked here rather than half an hour into the run.
   if (languages.length) {
@@ -221,6 +227,7 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
     scope,
     clientName,
     ...(languages.length ? { languages } : {}),
+    ...(context ? { context } : {}),
     ...runOptions(req),
     status: "running",
     startedAt: Date.now(),
@@ -239,7 +246,19 @@ export async function startAudit(req: AuditRequest): Promise<AuditJob> {
     step(job, `Backed up the existing reports/${existing.slug}.json to .studio-backups/${existing.slug}/`);
   }
 
-  const prompt = `/${COMMAND[scope]} ${url}${languages.length ? ` --languages ${languages.join(",")}` : ""}`;
+  // A file rather than prompt text: the command reads everything after its
+  // flags as the client name, and notes run to several lines. The job id has
+  // no spaces, so the path is one argument.
+  let contextArg = "";
+  if (context) {
+    mkdirSync(CONTEXT, { recursive: true });
+    const file = join(CONTEXT, `${id}.md`);
+    writeFileSync(file, `${context}\n`);
+    contextArg = ` --context ${relative(ROOT, file)}`;
+    step(job, `Auditor context: ${context.length} characters`);
+  }
+
+  const prompt = `/${COMMAND[scope]} ${url}${languages.length ? ` --languages ${languages.join(",")}` : ""}${contextArg}`;
   run(job, prompt);
   return job;
 }
@@ -267,6 +286,8 @@ export function resumeAudit(id: string): AuditJob {
     scope: old.scope,
     clientName: old.clientName,
     ...(old.languages ? { languages: old.languages } : {}),
+    // The resumed session already has the notes; this keeps them for a later Retry.
+    ...(old.context ? { context: old.context } : {}),
     ...runOptions(old),
     resumedFrom: old.id,
     since: old.since ?? old.startedAt,

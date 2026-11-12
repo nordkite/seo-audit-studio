@@ -155,7 +155,15 @@ export interface AuditRequest {
    * code. Left out to cover every version.
    */
   languages?: string[];
+  /**
+   * Notes for the auditor: focus, markets, known changes, sections to skip.
+   * They steer the audit and are never evidence. Kept out of the report.
+   */
+  context?: string;
 }
+
+/** Longest `context` an audit accepts, in characters. */
+export const MAX_AUDIT_CONTEXT = 4000;
 
 /** GET /api/audits/existing: the report an audit with these settings would replace. */
 export interface ExistingReport {

@@ -546,6 +546,7 @@ export default function App() {
                 scope: job.scope,
                 clientName: job.clientName,
                 languages: job.languages,
+                context: job.context,
                 model: job.model,
                 effort: job.effort,
                 subagents: job.subagents,
